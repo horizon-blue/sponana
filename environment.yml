@@ -1,0 +1,9 @@
+name: sponana
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - drake>=1.22.0
+      - jupyterlab>=4.0.0
