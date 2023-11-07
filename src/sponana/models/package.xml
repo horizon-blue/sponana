@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<package>
+  <name>sponana</name>
+  <version>0.0.1</version>
+  <description>
+    This package contains a bunch of models for the Sponana project
+  </description>
+  <maintainer>SPONANA Team</maintainer>
+</package>

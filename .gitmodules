@@ -1,0 +1,4 @@
+[submodule "spot_ros2"]
+	path = src/sponana/models/spot_ros2
+	url = https://github.com/bdaiinstitute/spot_ros2.git
+	shallow = true
