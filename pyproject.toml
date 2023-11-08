@@ -2,7 +2,7 @@
 name = "sponana"
 version = "0.0.1"
 requires-python = ">=3.11"
-dependencies = ["drake>=1.22.0", "manipulation>=2023.11.0"]
+dependencies = ["drake>=1.22.0", "manipulation>=2023.11.8"]
 
 [project.optional-dependencies]
 dev = ["jupyterlab"]

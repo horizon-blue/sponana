@@ -2,15 +2,6 @@ from pydrake.all import Parser, PackageMap
 from manipulation import ConfigureParser
 from pathlib import Path
 
-MODELS_PATH = Path(__file__).parent / "models"
-PACKAGE_XMLS = [
-    str(path.resolve())
-    for path in [
-        MODELS_PATH / "package.xml",  # SPONANA models
-        MODELS_PATH / "spot_ros2/spot_description/package.xml",
-    ]
-]
-
 
 def configure_parser(parser: Parser):
     """A helper function that registers `manipulation` package, Spot model,
@@ -18,5 +9,17 @@ def configure_parser(parser: Parser):
     given parser"""
     # Add the manipulation/package.xml index to the given Parser
     ConfigureParser(parser)
-    for xml in PACKAGE_XMLS:
-        parser.package_map().AddPackageXml(xml)
+    # Additional Spot metadata
+    parser.package_map().AddRemote(
+        package_name="spot_description",
+        params=PackageMap.RemoteParams(
+            urls=[
+                f"https://github.com/bdaiinstitute/spot_ros2/archive/d429947a1df842ec38f8c6099dde9501945090d6.tar.gz"
+            ],
+            sha256=("e4dd471be4e7e822a12afcfd6a94ce7ecbb39e2d4ea406779a96e146a607bf53"),
+            strip_prefix="spot_ros2-d429947a1df842ec38f8c6099dde9501945090d6/spot_description/",
+        ),
+    )
+    # Add Sponana to the parser
+    models_path = Path(__file__).parent / "models"
+    parser.package_map().Add("sponana", str(models_path.resolve()))
