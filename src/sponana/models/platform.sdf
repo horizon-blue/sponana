@@ -23,7 +23,7 @@
       </collision>
     </link>
     <frame name="platform_center">
-      <pose relative_to="platform_link">0 0 0.47 0 0 0</pose>
+      <pose relative_to="platform_link">0 0 0.05 0 0 0</pose>
     </frame>
   </model>
 </sdf>
