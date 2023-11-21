@@ -1,6 +1,10 @@
-from pydrake.all import Parser, PackageMap
-from manipulation import ConfigureParser
 from pathlib import Path
+from typing import Optional
+
+import pydot
+from IPython.display import SVG, display
+from manipulation import ConfigureParser
+from pydrake.all import Diagram, PackageMap, Parser
 
 
 def configure_parser(parser: Parser):
@@ -23,3 +27,13 @@ def configure_parser(parser: Parser):
     # Add Sponana to the parser
     models_path = Path(__file__).parent / "models"
     parser.package_map().Add("sponana", str(models_path.resolve()))
+
+
+def visualize_diagram(diagram: Diagram, max_depth: Optional[int] = None):
+    display(
+        SVG(
+            pydot.graph_from_dot_data(diagram.GetGraphvizString(max_depth=max_depth))[
+                0
+            ].create_svg()
+        )
+    )
