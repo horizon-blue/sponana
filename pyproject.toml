@@ -8,4 +8,6 @@ dependencies = [
     "jupyterlab",
     "numpy",
     "pydot",
+    # for remote display
+    'pyvirtualdisplay ; platform_system == "Linux"',
 ]
