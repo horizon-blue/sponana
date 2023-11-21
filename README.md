@@ -20,6 +20,13 @@ conda env create -f environment.yml
 conda activate sponana
 ```
 
+Alternatively, if you already have a Conda environment and just want to install the Sponana project, you can do so using Pip:
+
+```bash
+# install Sponana in editable mode
+pip install -e .
+```
+
 ## To add a model
 
 You can add new models to Sponana project by adding the files to [`src/sponana/models`](src/sponana/models) directory. Then, you can fetch the models from Sponana package index in your notebook. Here's an example of adding the banana model from [`src/sponana/models/banana/banana.sdf`](src/sponana/models/banana/banana.sdf) to the scene:
