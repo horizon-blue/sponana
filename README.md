@@ -45,3 +45,29 @@ station = MakeHardwareStation(
     scenario, meshcat, parser_preload_callback=sponana.utils.configure_parser
 )
  ```
+
+## Headless installation
+```bash
+pip install -e .
+pip install pyvirtualdisplay
+sudo apt install xvfb
+```
+
+## Bayes3D installation
+Make sure the python version for the sponana environment is 3.9.
+
+Then, from top level `sponana` dir, in the `sponana` conda environment, run:
+```bash
+mkdir lib
+cd lib
+git clone git@github.com:probcomp/bayes3d.git
+cd bayes3d
+pip install -e .
+pip install git+https://github.com/probcomp/genjax.git
+pip install --upgrade "jax[cuda11_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install torch torchvision torchaudio --upgrade --index-url https://download.pytorch.org/whl/cu118
+bash download.sh
+```
+You can then test the installation by running `python demo.py` (from within `lib/bayes3d/`).
+
+All the commands after `cd bayes3d` are instructions from the bayes3d README.md.  There are pointers in that document to how to resolve common errors which arise after Bayes3d installation.
