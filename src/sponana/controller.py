@@ -53,7 +53,7 @@ def make_spot_controller(
 
     # Export I/O ports
     if not use_teleop:
-        builder.ExportInput(position_to_state.get_input_port(), "position")
+        builder.ExportInput(position_to_state.get_input_port(), "desired_position")
     builder.ExportOutput(position_to_state.get_output_port(), "desired_state")
 
     # Finalize the diagram

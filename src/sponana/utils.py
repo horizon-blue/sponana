@@ -4,7 +4,7 @@ from typing import Optional
 import pydot
 from IPython.display import SVG, display
 from manipulation import ConfigureParser
-from pydrake.all import Diagram, PackageMap, Parser
+from pydrake.all import Diagram, Meshcat, PackageMap, Parser, Simulator
 
 
 def configure_parser(parser: Parser):
@@ -37,3 +37,21 @@ def visualize_diagram(diagram: Diagram, max_depth: Optional[int] = None):
             ].create_svg()
         )
     )
+
+
+def run_simulation(simulator: Simulator, meshcat: Meshcat, finish_time=2.0):
+    simulator.Initialize()
+    simulator.set_target_realtime_rate(1.0)
+
+    if finish_time <= 0:
+        # keep simulation running
+        meshcat.AddButton("Stop Simulation", "Escape")
+        print("Press Escape to stop the simulation")
+        while meshcat.GetButtonClicks("Stop Simulation") < 1:
+            simulator.AdvanceTo(simulator.get_context().get_time() + 0.1)
+        meshcat.DeleteButton("Stop Simulation")
+    else:
+        # run similator for a fixed duration and publish recording
+        meshcat.StartRecording()
+        simulator.AdvanceTo(finish_time)
+        meshcat.PublishRecording()
