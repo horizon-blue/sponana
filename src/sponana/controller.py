@@ -1,4 +1,4 @@
-from typing import NamedTuple, Optional
+from typing import Optional
 
 from pydrake.all import (
     Diagram,
