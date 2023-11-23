@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 from IPython.display import clear_output
 from pydrake.all import (
     AbstractValue,
-    BasicVector,
     Context,
     LeafSystem,
     Meshcat,
@@ -38,10 +37,9 @@ class DebugLogger(LeafSystem):
         meshcat.AddButton(self._button, "Space")
         print("Press Space to log system info")
 
-        # Output port
         self._click_count = 0
-        port = self.DeclareVectorOutputPort("logging", 1, self._log)
-        port.disable_caching_by_default()
+        # Continuously check the button pressing state and log if needed
+        self.DeclarePerStepPublishEvent(self._log)
 
     def get_color_image_input_port(self):
         return self.get_input_port(0)
@@ -73,15 +71,13 @@ class DebugLogger(LeafSystem):
         camera_pose = camera_pose.get_value()
         print(f"Camera pose: {camera_pose}")
 
-    def _log(self, context: Context, output: BasicVector):
+    def _log(self, context: Context):
         # check if button is clicked
         click_count = self._meshcat.GetButtonClicks(self._button)
         if click_count <= self._click_count:
-            output[0] = 0.0
             return
         clear_output()
         print("Logging system info...")
         self._log_camera_pose(context)
         self._plot_images(context)
         self._click_count = click_count
-        output[0] = 1.0
