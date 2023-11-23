@@ -12,7 +12,7 @@ from pydrake.all import (
 
 
 class BananaSpotter(LeafSystem):
-    def __init__(self, camera: RgbdSensor):
+    def __init__(self, camera: RgbdSensor, num_tables: int = 0):
         super().__init__()
         self._camera = camera
 
@@ -23,6 +23,14 @@ class BananaSpotter(LeafSystem):
         self.DeclareAbstractInputPort(
             "depth_image", camera.depth_image_32F_output_port().Allocate()
         )
+        self.DeclareAbstractInputPort(
+            "camera_pose", AbstractValue.Make(RigidTransform())
+        )
+        self._num_tables = num_tables
+        for i in range(num_tables):
+            self.DeclareAbstractInputPort(
+                f"table{i}_pose", AbstractValue.Make(RigidTransform())
+            )
 
         # Output ports
         self.DeclareAbstractOutputPort(
@@ -37,6 +45,12 @@ class BananaSpotter(LeafSystem):
 
     def get_depth_image_input_port(self):
         return self.get_input_port(1)
+
+    def get_camera_pose_input_port(self):
+        return self.get_input_port(2)
+
+    def get_table_pose_input_port(self, table_index: int):
+        return self.get_input_port(3 + table_index)
 
     def _locate_banana(self, context: Context, output: AbstractValue):
         banana_pose, _ = self._find_and_locate_banana(context)
