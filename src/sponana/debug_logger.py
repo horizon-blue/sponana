@@ -1,6 +1,14 @@
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
-from pydrake.all import BasicVector, Context, LeafSystem, Meshcat, RgbdSensor
+from pydrake.all import (
+    AbstractValue,
+    BasicVector,
+    Context,
+    LeafSystem,
+    Meshcat,
+    RgbdSensor,
+    RigidTransform,
+)
 
 
 class DebugLogger(LeafSystem):
@@ -20,6 +28,9 @@ class DebugLogger(LeafSystem):
         self.DeclareAbstractInputPort(
             "depth_image", camera.depth_image_32F_output_port().Allocate()
         )
+        self.DeclareAbstractInputPort(
+            "camera_pose", AbstractValue.Make(RigidTransform())
+        )
 
         # Create keybind for Space button
         self._meshcat = meshcat
@@ -38,6 +49,9 @@ class DebugLogger(LeafSystem):
     def get_depth_image_input_port(self):
         return self.get_input_port(1)
 
+    def get_camera_pose_input_port(self):
+        return self.get_input_port(2)
+
     def __del__(self):
         self._meshcat.DeleteButton(self._button)
 
@@ -52,6 +66,13 @@ class DebugLogger(LeafSystem):
         plt.imshow(depth_image.data)
         plt.show()
 
+    def _log_camera_pose(self, context: Context):
+        camera_pose = self.EvalAbstractInput(context, 2)
+        if not camera_pose:  # port is not connected
+            return
+        camera_pose = camera_pose.get_value()
+        print(f"Camera pose: {camera_pose}")
+
     def _log(self, context: Context, output: BasicVector):
         # check if button is clicked
         click_count = self._meshcat.GetButtonClicks(self._button)
@@ -60,6 +81,7 @@ class DebugLogger(LeafSystem):
             return
         clear_output()
         print("Logging system info...")
+        self._log_camera_pose(context)
         self._plot_images(context)
         self._click_count = click_count
         output[0] = 1.0
