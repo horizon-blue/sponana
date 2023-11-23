@@ -16,7 +16,7 @@ class DebugLogger(LeafSystem):
     when pressing the Space button
     """
 
-    def __init__(self, camera: RgbdSensor, meshcat: Meshcat):
+    def __init__(self, camera: RgbdSensor, meshcat: Meshcat, num_tables: int = 0):
         super().__init__()
 
         # Input ports
@@ -30,6 +30,11 @@ class DebugLogger(LeafSystem):
         self.DeclareAbstractInputPort(
             "camera_pose", AbstractValue.Make(RigidTransform())
         )
+        self._num_tables = num_tables
+        for i in range(num_tables):
+            self.DeclareAbstractInputPort(
+                f"table{i}_pose", AbstractValue.Make(RigidTransform())
+            )
 
         # Create keybind for Space button
         self._meshcat = meshcat
@@ -49,6 +54,9 @@ class DebugLogger(LeafSystem):
 
     def get_camera_pose_input_port(self):
         return self.get_input_port(2)
+
+    def get_table_pose_input_port(self, table_index: int):
+        return self.get_input_port(3 + table_index)
 
     def __del__(self):
         self._meshcat.DeleteButton(self._button)
@@ -71,6 +79,14 @@ class DebugLogger(LeafSystem):
         camera_pose = camera_pose.get_value()
         print(f"Camera pose: {camera_pose}")
 
+    def _log_table_pose(self, context: Context):
+        for i in range(self._num_tables):
+            table_pose = self.EvalAbstractInput(context, 3 + i)
+            if not table_pose:  # port is not connected
+                continue
+            table_pose = table_pose.get_value()
+            print(f"Table {i} pose: {table_pose}")
+
     def _log(self, context: Context):
         # check if button is clicked
         click_count = self._meshcat.GetButtonClicks(self._button)
@@ -79,5 +95,6 @@ class DebugLogger(LeafSystem):
         clear_output()
         print("Logging system info...")
         self._log_camera_pose(context)
+        self._log_table_pose(context)
         self._plot_images(context)
         self._click_count = click_count

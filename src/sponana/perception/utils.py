@@ -31,3 +31,22 @@ def add_camera_pose_extractor(
         camera_pose.get_input_port(),
     )
     return camera_pose
+
+
+def add_body_pose_extractor(
+    model_instance_name: str, body_name: str, station: Diagram, builder: DiagramBuilder
+):
+    plant = station.GetSubsystemByName("plant")
+    pose_extractor = builder.AddNamedSystem(
+        f"{model_instance_name}.pose",
+        ExtractBodyPose(
+            station.GetOutputPort("body_poses"),
+            plant.GetBodyByName(
+                body_name, plant.GetModelInstanceByName(model_instance_name)
+            ).index(),
+        ),
+    )
+    builder.Connect(
+        station.GetOutputPort("body_poses"), pose_extractor.get_input_port()
+    )
+    return pose_extractor
