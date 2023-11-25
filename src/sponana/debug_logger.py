@@ -35,6 +35,7 @@ class DebugLogger(LeafSystem):
             self.DeclareAbstractInputPort(
                 f"table{i}_pose", AbstractValue.Make(RigidTransform())
             )
+        self.DeclareVectorInputPort("spot_state", 20)
 
         # Create keybind for Space button
         self._meshcat = meshcat
@@ -56,7 +57,11 @@ class DebugLogger(LeafSystem):
         return self.get_input_port(2)
 
     def get_table_pose_input_port(self, table_index: int):
+        assert table_index < self._num_tables
         return self.get_input_port(3 + table_index)
+
+    def get_spot_state_input_port(self):
+        return self.get_input_port(3 + self._num_tables)
 
     def __del__(self):
         self._meshcat.DeleteButton(self._button)
@@ -87,6 +92,14 @@ class DebugLogger(LeafSystem):
             table_pose = table_pose.get_value()
             print(f"Table {i} pose: {table_pose}")
 
+    def _log_spot_state(self, context: Context):
+        spot_state = self.EvalVectorInput(context, 3 + self._num_tables)
+        if spot_state is None:
+            return
+        spot_state = spot_state.get_value()
+        # only log x, y and rotation z for now
+        print(f"Spot's state: {spot_state[:3]}")
+
     def _log(self, context: Context):
         # check if button is clicked
         click_count = self._meshcat.GetButtonClicks(self._button)
@@ -96,5 +109,6 @@ class DebugLogger(LeafSystem):
         print("Logging system info...")
         self._log_camera_pose(context)
         self._log_table_pose(context)
+        self._log_spot_state(context)
         self._plot_images(context)
         self._click_count = click_count

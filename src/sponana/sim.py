@@ -1,15 +1,11 @@
-import numpy as np
-import random
 import math
-from pydrake.common import temp_directory
-from pydrake.geometry import StartMeshcat
-from pydrake.systems.analysis import Simulator
-from pydrake.visualization import ModelVisualizer
-from pydrake.all import Simulator, StartMeshcat, LogVectorOutput
+import random
 
-from manipulation import running_as_notebook
-from manipulation.station import MakeHardwareStation, load_scenario
+import numpy as np
 from IPython.display import HTML, display
+from manipulation import ConfigureParser, running_as_notebook
+from manipulation.scenarios import AddShape, ycb
+from manipulation.station import MakeHardwareStation, load_scenario
 from matplotlib import pyplot as plt
 from pydrake.all import (
     AddMultibodyPlantSceneGraph,
@@ -18,6 +14,7 @@ from pydrake.all import (
     DiagramBuilder,
     FixedOffsetFrame,
     JointIndex,
+    LogVectorOutput,
     Parser,
     PlanarJoint,
     RandomGenerator,
@@ -27,22 +24,22 @@ from pydrake.all import (
     StartMeshcat,
     UniformlyRandomRotationMatrix,
 )
-
-from manipulation import ConfigureParser, running_as_notebook
-from manipulation.scenarios import AddShape, ycb
-from manipulation.station import MakeHardwareStation, load_scenario
 from pydrake.common import temp_directory
+from pydrake.geometry import StartMeshcat
+from pydrake.systems.analysis import Simulator
+from pydrake.visualization import ModelVisualizer
 
 # sponana/src/sponana/utils.py
 import sponana.utils
 from sponana.controller import SpotController
 from sponana.debug_logger import DebugLogger
-from sponana.perception import (
-    add_camera_pose_extractor,
-    add_body_pose_extractor,
-    BananaSpotter,
-)
 from sponana.hardcoded_cameras import get_camera_generator_str
+from sponana.perception import (
+    BananaSpotter,
+    add_body_pose_extractor,
+    add_camera_pose_extractor,
+)
+
 
 def distance_thres_point(poss_point_x, poss_point_y, x_points, y_points, r_threshold):
     # print("poss_point_x", poss_point_x, "poss_point_y", poss_point_y)
@@ -76,32 +73,39 @@ def generate_random_with_min_dist(x_upper_range, y_upper_range, num_elements):
             )
     return x_points, y_points
 
+
 def add_cameras_at_tables():
     camera_poses_W = [
         RigidTransform(
-            R=RotationMatrix([
-                [-0.008426572055398018, 0.49998224790571183, -0.865994656255191],
-                [0.9999644958114239, 0.004213286027699008, -0.007297625466794737],
-                [0.0, -0.8660254037844386, -0.49999999999999983],
-            ]),
+            R=RotationMatrix(
+                [
+                    [-0.008426572055398018, 0.49998224790571183, -0.865994656255191],
+                    [0.9999644958114239, 0.004213286027699008, -0.007297625466794737],
+                    [0.0, -0.8660254037844386, -0.49999999999999983],
+                ]
+            ),
             p=[0.5567144688632728, -0.003735510093671053, 0.495],
         ),
         RigidTransform(
-            R=RotationMatrix([
-                [0.7564493864543211, -0.32702611735642795, 0.5664258506633156],
-                [-0.6540522347128561, -0.3782246932271605, 0.6551043853465944],
-                [0.0, -0.8660254037844387, -0.4999999999999999],
-            ]),
+            R=RotationMatrix(
+                [
+                    [0.7564493864543211, -0.32702611735642795, 0.5664258506633156],
+                    [-0.6540522347128561, -0.3782246932271605, 0.6551043853465944],
+                    [0.0, -0.8660254037844387, -0.4999999999999999],
+                ]
+            ),
             p=[-0.4067672805262673, -0.5122634135249003, 0.495],
         ),
         RigidTransform(
-            R=RotationMatrix([
-                [-0.8214529060279898, -0.28513817842327355, 0.49387381220674975],
-                [-0.5702763568465472, 0.4107264530139948, -0.7113990846327904],
-                [0.0, -0.8660254037844387, -0.4999999999999999],
-            ]),
+            R=RotationMatrix(
+                [
+                    [-0.8214529060279898, -0.28513817842327355, 0.49387381220674975],
+                    [-0.5702763568465472, 0.4107264530139948, -0.7113990846327904],
+                    [0.0, -0.8660254037844387, -0.4999999999999999],
+                ]
+            ),
             p=[-0.35091572089593653, 0.4881919030929625, 0.495],
-        )
+        ),
     ]
 
 
@@ -137,14 +141,15 @@ def random_object_spawn(
         z += 0.01
         body_index += 1
 
+
 def clutter_gen(
-        meshcat,
-        rng,
-        table_height=0.2,
-        add_spot=True,
-        debug=False,
-        simulation_time=-1,
-        add_fixed_cameras=True
+    meshcat,
+    rng,
+    table_height=0.2,
+    add_spot=True,
+    debug=False,
+    simulation_time=-1,
+    add_fixed_cameras=True,
 ):
     scenario_data = f"""
 cameras:
@@ -382,6 +387,10 @@ model_drivers:
                     pose_extractor.get_output_port(),
                     debugger.get_table_pose_input_port(i),
                 )
+            builder.Connect(
+                station.GetOutputPort("spot.state_estimated"),
+                debugger.get_spot_state_input_port(),
+            )
 
     diagram = builder.Build()
 
@@ -403,19 +412,37 @@ model_drivers:
     x_upper_bound = 0.20
     y_upper_bound = 0.30
     random_object_spawn(
-        center_table_bodies, x_upper_bound, y_upper_bound, plant, plant_context, "", table_height
+        center_table_bodies,
+        x_upper_bound,
+        y_upper_bound,
+        plant,
+        plant_context,
+        "",
+        table_height,
     )
 
     right_table_bodies = set(
         floating_base_bodies_list[len_bodies // 3 : len_bodies // 3 * 2]
     )
     random_object_spawn(
-        right_table_bodies, x_upper_bound, y_upper_bound, plant, plant_context, "right", table_height
+        right_table_bodies,
+        x_upper_bound,
+        y_upper_bound,
+        plant,
+        plant_context,
+        "right",
+        table_height,
     )
 
     left_table_bodies = set(floating_base_bodies_list[len_bodies // 3 * 2 :])
     random_object_spawn(
-        left_table_bodies, x_upper_bound, y_upper_bound, plant, plant_context, "left", table_height
+        left_table_bodies,
+        x_upper_bound,
+        y_upper_bound,
+        plant,
+        plant_context,
+        "left",
+        table_height,
     )
 
     sponana.utils.run_simulation(simulator, meshcat, finish_time=simulation_time)
