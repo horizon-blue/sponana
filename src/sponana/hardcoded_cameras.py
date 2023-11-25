@@ -58,7 +58,7 @@ camera_poses_W = [
         p=[-0.35091572089593653, 0.4881919030929625, 0.495],
     )
 ]
-table_pose = Xs_WT[1] # Table these camera poses are around
+table_pose = Xs_WT[0] # Table these camera poses are around
 
 def get_camera_poses_table_frame():
     X_WT = table_pose
@@ -66,6 +66,14 @@ def get_camera_poses_table_frame():
     # Camera poses in table frame
     Xs_TC = [X_TW @ X_WC for X_WC in camera_poses_W]
     return Xs_TC
+
+def get_all_camera_poses_world_frame():
+    Xs_TC = get_camera_poses_table_frame()
+    Xs_WC = []
+    for X_WT in Xs_WT:
+        for X_TC in Xs_TC:
+            Xs_WC.append(X_WT @ X_TC)
+    return Xs_WC
 
 def get_camera_generator_str():
     Xs_TC = get_camera_poses_table_frame()
