@@ -445,4 +445,4 @@ model_drivers:
     )
 
     sponana.utils.run_simulation(simulator, meshcat, finish_time=simulation_time)
-    return simulator, diagram, debugger
+    return simulator, diagram
