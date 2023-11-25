@@ -47,7 +47,7 @@ def distance_thres_point(poss_point_x, poss_point_y, x_points, y_points, r_thres
         dist = math.hypot(
             abs(poss_point_x - x_points[ind]), abs(poss_point_y - y_points[ind])
         )
-        print("dist", dist)
+        #print("dist", dist)
         if dist < r_threshold:
             return False
     return True
@@ -58,19 +58,19 @@ def generate_random_with_min_dist(x_upper_range, y_upper_range, num_elements):
     y_points = []
     # max x collisions of the ycb objects: 0.158000 (cracker), 0.086700 (sugar box), 0.031850 radius (tomato soup can), 0.090000 (mustard bottle), 0.083200 (gelatin box), 0.095600 (SPAM)
     x_sample = np.arange(-x_upper_range, x_upper_range, 0.15)
-    print("x_sample", x_sample)
+    #("x_sample", x_sample)
     # max y collisions of the ycb objects: 0.207400 (cracker), 0.170300 (sugar box), 0.099900 length (tomato soup can), 0.160300 (mustard bottle), 0.067100 (gelatin box), 0.077500 (SPAM)
     y_sample = np.arange(-y_upper_range, y_upper_range, 0.20)
-    print("y_sample", y_sample)
+    #print("y_sample", y_sample)
     while len(x_points) < num_elements:
         poss_point_x = np.random.choice(x_sample)
         poss_point_y = np.random.choice(y_sample)
         if distance_thres_point(poss_point_x, poss_point_y, x_points, y_points, 0.15):
             x_points.append(poss_point_x)
             y_points.append(poss_point_y)
-            print(
-                "appended:", "x_points_append:", x_points, "y_points_append:", y_points
-            )
+            #print(
+            #    "appended:", "x_points_append:", x_points, "y_points_append:", y_points
+            #)
     return x_points, y_points
 
 
@@ -120,11 +120,11 @@ def random_object_spawn(
 
     z = 0.2 + table_height
     num_elements = len(bodies_list)
-    print("number of objects for table", num_elements)
+    #print("number of objects for table", num_elements)
     x_points, y_points = generate_random_with_min_dist(
         x_upper_bound, y_upper_bound, num_elements
     )
-    print("x_points", x_points, "y_points", y_points)
+    #print("x_points", x_points, "y_points", y_points)
     body_index = 0
     for body in bodies_list:
         random_z_theta = random.uniform(0, 2 * np.pi)
@@ -401,9 +401,8 @@ model_drivers:
 
     # print("plant Floating Base", set(list(plant.GetFloatingBaseBodies())[0:3]))
     random_z_theta = random.uniform(0, 2 * np.pi)
-    print(random_z_theta)
-    random_z_rotation = RotationMatrix.MakeZRotation(random_z_theta)
-    print("random z rotation:", random_z_rotation)
+    #print(random_z_theta)
+    #print("random z rotation:", random_z_rotation)
     # print(type(plant.GetFloatingBaseBodies()))
     floating_base_bodies_list = list(plant.GetFloatingBaseBodies())
     len_bodies = len(floating_base_bodies_list)
@@ -446,4 +445,4 @@ model_drivers:
     )
 
     sponana.utils.run_simulation(simulator, meshcat, finish_time=simulation_time)
-    return simulator, diagram
+    return simulator, diagram, debugger
