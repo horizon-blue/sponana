@@ -259,7 +259,7 @@ def b3d_update(
 
     # preprocess data
     rgbd = get_rgbd(camera_image, external_pose_to_b3d_pose)
-    rgbd_scaled_down, obs_img, table_pose_ransac, cloud, depth_im = _b3d.scale_remove_and_setup_renderer(rgbd, scaling_factor=scaling_factor)
+    rgbd_scaled_down, obs_img, table_pose_ransac, cloud, depth_im = _b3d.scale_remove_and_setup_renderer(rgbd, scaling_factor=scaling_factor, table_pose_in_cam_frame=X_CT)
     _b3d.add_meshes_to_renderer()
 
     if show_meshcat:
@@ -307,8 +307,9 @@ def b3d_update(
     # P
     scores = _b3d.score_vmap(rendered_images, obs_img, 0.04)
     max_score = jnp.max(scores)
-
-    if max_score > score_without_target + 0.15:
+    
+    threshold = 0.12
+    if max_score > score_without_target + threshold:
         print("Target object is visible.")
         print(f"Score without any rendered objects: {score_without_target}")
         print(f"Max score with target object: {max_score}")
@@ -329,7 +330,6 @@ def b3d_update(
         # NOTE: I have not debugged this branch on data where the target object is not visible.
         # (I did check that this code seems to do something reasonable on data where the target
         # object is visible.) 
-        threshold = 0.15
         viable_indices = jnp.where(scores > max_score - threshold)[0]
         new_possible_target_poses_C = possible_target_poses_C[viable_indices, ...]
 

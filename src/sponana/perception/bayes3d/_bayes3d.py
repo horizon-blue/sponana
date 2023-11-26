@@ -25,6 +25,21 @@ from bayes3d.neural.segmentation import carvekit_get_foreground_mask
 import genjax
 import pyransac3d
 
+def plane_pose_to_plane_eq(plane_pose):
+    """
+    Returns the equation of a plane from its pose.
+    Args:
+        plane_pose: (4,4) pose of the plane
+    Returns:
+        plane_eq: (4,) plane equation
+    """
+    plane_normal = plane_pose[:3,2]
+    point_on_plane = plane_pose[:3,3]
+    plane_eq = jnp.zeros(4)
+    plane_eq = plane_eq.at[:3].set(plane_normal)
+    plane_eq = plane_eq.at[3].set(-plane_normal.dot(point_on_plane))
+    return plane_eq
+
 ### Convert YCB category names to renderer indices ###
 CAT_NAMES = [m[4:] for m in MODEL_NAMES]
 def category_name_to_renderer_idx(name):
@@ -58,6 +73,16 @@ def find_plane(point_cloud, threshold, minPoints=100, maxIteration=1000):
     plane_pose = b.utils.plane_eq_to_plane_pose(plane_eq)
     return plane_pose, inliers
 
+def get_plane_inliers(point_cloud, plane_pose, threshold):
+    """
+    Returns the indices of the points in the point cloud that are within
+    `threshold` distance of the plane.
+    """
+    plane = plane_pose_to_plane_eq(plane_pose)
+    dist_pt = (
+        plane[0] * point_cloud[:, 0] + plane[1] * point_cloud[:, 1] + plane[2] * point_cloud[:, 2] + plane[3]
+    ) / np.sqrt(plane[0] ** 2 + plane[1] ** 2 + plane[2] ** 2)
+    return np.where(np.abs(dist_pt) <= threshold)[0]
 
 def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_frame=None):    
     rgbd_scaled_down = b.RGBD.scale_rgbd(rgbd, scaling_factor)
@@ -72,7 +97,11 @@ def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_
     cloud = cloud.at[too_small_indices, :].set(np.nan)
 
     # if table_pose_in_cam_frame is None:
-    table_pose, inliers = find_plane(np.array(cloud), 0.01)
+    if table_pose_in_cam_frame is None:
+        table_pose, inliers = find_plane(np.array(cloud), 0.01)
+    else:
+        table_pose = table_pose_in_cam_frame
+        inliers = get_plane_inliers(np.array(cloud), table_pose, 0.01)
     camera_pose = jnp.eye(4)
     table_pose_in_cam_frame = b.t3d.inverse_pose(camera_pose) @ table_pose
     if table_pose_in_cam_frame[2,2] > 0:
