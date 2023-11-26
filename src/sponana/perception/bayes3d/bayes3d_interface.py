@@ -308,8 +308,10 @@ def b3d_update(
     scores = _b3d.score_vmap(rendered_images, obs_img, 0.04)
     max_score = jnp.max(scores)
 
-    if max_score > score_without_target + 0.01:
+    if max_score > score_without_target + 0.15:
         print("Target object is visible.")
+        print(f"Score without any rendered objects: {score_without_target}")
+        print(f"Max score with target object: {max_score}")
         idx = jnp.argmax(scores)
         target_pose_C = do_c2f_around_pose(possible_target_poses_C[idx, ...], object_indices, faces, known_poses_C, table_pose, obs_img, target_category)
         new_possible_target_poses_C = jnp.array([target_pose_C])
@@ -327,7 +329,7 @@ def b3d_update(
         # NOTE: I have not debugged this branch on data where the target object is not visible.
         # (I did check that this code seems to do something reasonable on data where the target
         # object is visible.) 
-        threshold = 0.01
+        threshold = 0.15
         viable_indices = jnp.where(scores > max_score - threshold)[0]
         new_possible_target_poses_C = possible_target_poses_C[viable_indices, ...]
 
