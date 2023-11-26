@@ -10,7 +10,7 @@ from pydrake.all import (
 )
 
 # nominal joint angles for Spot's arm (for joint centering)
-q_nominal_arm = np.array([0.0, -0.31, 3.1, 0.0, 0.0, 0.0, 0.0])
+q_nominal_arm = np.array([0.0, -3.1, 3.1, 0.0, 0.0, 0.0, 0.0])
 # for base, we can just use whatever the current pose is
 
 
@@ -25,6 +25,7 @@ def solve_ik(
     context: Context,
     X_WT: RigidTransform,
     target_frame_name: str = "arm_link_fngr",
+    base_position: np.ndarray = np.zeros(3),
     fix_base: bool = True,
     rotation_bound: float = 0.01,
     position_bound: float = 0.01,
@@ -34,7 +35,7 @@ def solve_ik(
 
     Args:
         plant (MultibodyPlant): The plant that contains the Spot model.
-        context (Context): The plant context (obtained by `plant.GetMyContextFromRoot(context)`)
+        context (Context): The plant context
         X_WT (RigidTransform): The target pose in the world frame.
         target_frame_name (str, optional): The name of a frame that X_WT should correspond to,
         defaults to "arm_link_fngr" (the upper part of the gripper on Spot's arm).
@@ -53,9 +54,8 @@ def solve_ik(
     target_frame = plant.GetFrameByName(target_frame_name)
 
     # nominal pose
-    q_current = plant.GetPositions(context)
-    # q0 = np.concatenate([current_q_base, q_nominal_arm])
-    q0 = q_current.copy()
+    q0 = np.zeros(len(q))
+    q0[:3] = base_position
     q0[3:10] = q_nominal_arm
 
     # Target position and rotatio
@@ -77,14 +77,14 @@ def solve_ik(
         R_BbarB=RotationMatrix(),
         theta_bound=rotation_bound,
     )
-    # This is currently failing for some reason
+    # # This is currently failing for some reason
     # # collision constraint
     # ik.AddMinimumDistanceLowerBoundConstraint(
     #     collision_bound, influence_distance_offset=0.1
     # )
 
     if fix_base:
-        prog.AddConstraint(eq(q[:3], q_current[:3]))
+        prog.AddConstraint(eq(q[:3], base_position))
 
     # Let's get started
     prog.AddQuadraticErrorCost(np.identity(len(q)), q0, q)

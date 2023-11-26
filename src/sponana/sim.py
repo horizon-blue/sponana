@@ -150,6 +150,7 @@ def clutter_gen(
     debug=False,
     simulation_time=-1,
     add_fixed_cameras=True,
+    enable_arm_ik=True,
 ):
     scenario_data = f"""
 cameras:
@@ -321,7 +322,9 @@ model_drivers:
         spot_plant = station.GetSubsystemByName(
             "spot.controller"
         ).get_multibody_plant_for_control()
-        spot_controller = builder.AddSystem(SpotController(spot_plant, meshcat=meshcat))
+        spot_controller = builder.AddSystem(
+            SpotController(spot_plant, meshcat=meshcat, enable_arm_ik=enable_arm_ik)
+        )
         builder.Connect(
             spot_controller.get_output_port(),
             station.GetInputPort("spot.desired_state"),
@@ -364,6 +367,10 @@ model_drivers:
         # Banana pose (using cheat port -- placeholder for now)
         banana_pose_extractor = add_body_pose_extractor(
             "banana", "banana", station, builder
+        )
+        builder.Connect(
+            banana_pose_extractor.get_output_port(),
+            spot_controller.GetInputPort("desired_gripper_pose"),
         )
 
         if debug:
