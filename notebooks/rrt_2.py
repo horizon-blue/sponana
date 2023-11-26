@@ -1,10 +1,10 @@
 import numpy as np
 
-def check_collision(q_current, table_poses):
+def check_collision(q_current, spot_boundary, table_poses, table_boundary):
     """q_current: robot current position
     table_poses: list of possible collisions
     """
-    
+    if q_current
 
 #adapted from Rus's basic RRT example
 def basic_rrt(q_start, q_goal):
