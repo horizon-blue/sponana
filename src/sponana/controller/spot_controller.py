@@ -9,11 +9,15 @@ from pydrake.all import (
     StateInterpolatorWithDiscreteDerivative,
 )
 
+from .position_combiner import PositionCombiner
+from .spot_arm_ik_controller import SpotArmIKController
+
 
 def make_spot_controller(
     spot_plant: MultibodyPlant,
     use_teleop: bool = True,
     meshcat: Optional[Meshcat] = None,
+    enable_arm_ik: bool = True,
 ) -> Diagram:
     """
     Create and return a Spot controller that output the state configuration
@@ -36,6 +40,21 @@ def make_spot_controller(
         ),
     )
 
+    # Control arm with IK
+    spot_arm_ik_controller = builder.AddNamedSystem(
+        "spot_arm_ik", SpotArmIKController(spot_plant, enabled=enable_arm_ik)
+    )
+
+    # Combine Spot's arm and base positions
+    position_combiner = builder.AddNamedSystem("position_combiner", PositionCombiner())
+    builder.Connect(
+        spot_arm_ik_controller.get_output_port(),
+        position_combiner.get_arm_position_input_port(),
+    )
+    builder.Connect(
+        position_combiner.get_output_port(), position_to_state.get_input_port()
+    )
+
     if use_teleop:
         # Pose Sliders
         teleop = builder.AddNamedSystem(
@@ -49,11 +68,23 @@ def make_spot_controller(
                 increment_keycodes=["ArrowRight", "ArrowUp", "KeyD"] + [""] * 7,
             ),
         )
-        builder.Connect(teleop.get_output_port(), position_to_state.get_input_port())
+        builder.Connect(
+            teleop.get_output_port(), position_combiner.get_base_position_input_port()
+        )
+        builder.Connect(
+            teleop.get_output_port(),
+            spot_arm_ik_controller.get_base_position_input_port(),
+        )
+        # builder.Connect(teleop.get_output_port(), position_to_state.get_input_port())
 
     # Export I/O ports
     if not use_teleop:
-        builder.ExportInput(position_to_state.get_input_port(), "desired_position")
+        builder.ExportInput(
+            position_combiner.get_base_position_input_port(), "desired_base_position"
+        )
+    builder.ExportInput(
+        spot_arm_ik_controller.get_desired_pose_input_port(), "desired_gripper_pose"
+    )
     builder.ExportOutput(position_to_state.get_output_port(), "desired_state")
 
     # Finalize the diagram
