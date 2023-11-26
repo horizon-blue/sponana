@@ -333,4 +333,38 @@ def get_viable_object_positions(
         strictly_greater_poses[:, -1, ...],
         potential_indices
     )
+
+def contact_params_from_poses(table_pose, poses):
+    """
+    This may silently fail if the poses are not poses of objects flat on the table.
+    """
+    X_CT = table_pose
+    X_TC = b.t3d.inverse_pose(X_CT)
+    X_CO = poses # object poses in camera frame
     
+    # Object poses, in table frame
+    # N x 4 x 4
+    X_TO = X_TC @ X_CO
+
+    x_vals = X_TO[:, 0, 3]
+    y_vals = X_TO[:, 1, 3]
+
+    # The poses should be flat on the table, so the rotation matrix should look like
+    # [cos x, -sin x, 0]
+    # [sin x, cos x, 0]
+    # [0, 0, 1]
+    rots_around_z_axis = jnp.arccos(X_TO[:, 0, 0])
+    
+    # I don't understand why, but it appears I need to add pi/2
+    # to get the right angle.
+    rots_around_z_axis = rots_around_z_axis + np.pi/2
+
+    # Check this rotation is approximately the same as the original    
+    # new_matrices = jax.vmap(b.t3d.rotation_from_axis_angle, in_axes=(None, 0))(jnp.array([0.0, 0.0, 1.0]), rots_around_z_axis)
+    # assert jnp.allclose(new_matrices, X_TO[:, :3, :3])
+
+    # (n, 3)
+    contact_param_vec = jnp.stack([x_vals, y_vals, rots_around_z_axis], axis=-1)
+    assert contact_param_vec.shape == (poses.shape[0], 3)
+
+    return contact_param_vec
