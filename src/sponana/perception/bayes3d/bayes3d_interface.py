@@ -366,3 +366,64 @@ def do_c2f_around_pose(approx_pose_C, object_indices, faces, known_poses_C, tabl
     target_pose_C = _b3d._cp_to_pose(target_cp, object_indices_including_target[-1], 3, table_pose)
     return target_pose_C
 
+# TODO: We really ought to pass in new camera intrinsics here.
+# Currently this will use whatever intrinsics B3D was set up with
+# in a call to b3d_init or b3d_update.
+def b3d_is_visible(
+        _known_poses_W,
+        possible_target_pose_vec_W, # Jax Numpy array of shape P x 4 x 4; world frame
+        camera_pose, # external pose representation
+        target_category,
+        external_pose_to_b3d_pose=None,
+        b3d_pose_to_external_pose=None
+    ):
+    logging.info("In b3d_is_visible_vectorized")
+
+    X_WC = external_pose_to_b3d_pose(camera_pose)
+    X_CW = _b3d.b.t3d.inverse_pose(X_WC)
+    possible_poses_C = X_CW @ possible_target_pose_vec_W # P x 4 x 4
+
+    category_names = [name for name, pose, face in _known_poses_W]
+    object_indices = jnp.array([_b3d.category_name_to_renderer_idx(name) for name in category_names])
+    known_poses_W = jnp.stack([external_pose_to_b3d_pose(pose) for name, pose, face in _known_poses_W])
+    known_poses_C = X_CW @ known_poses_W # N x 4 x 4
+
+    target_cat_idx = _b3d.category_name_to_renderer_idx(target_category)
+
+    # The algorithm is:
+    # 1. Render the target object at each possible pose.
+    # 2. Render all the objects other than the target.
+    # 3. Get list of (target obj depth image) - (known obj depth image)
+    # 4. Any pose where the depth image is all negative is occluded by a known object.
+    #       So, return False for those poses, and True for all the others.
+    #       (For robustnes I will actually require >4 visible pixels for it to count.)
+
+    # 1. Render the target object at each possible pose.
+    # P x w x h x 3
+    target_rendered_images = _b3d.b.RENDERER.render_many(
+        jnp.expand_dims(possible_poses_C, axis=1), # P x 1 x 4 x 4
+        jnp.array([target_cat_idx]) # (1,)
+    )[..., :3]
+    target_rendered_depthvals = target_rendered_images[..., 2] # P x w x h x 1
+
+    # 2. Render all the objects other than the target.
+    # 1 x w x h x 3
+    known_rendered_image = _b3d.b.RENDERER.render_many(
+        jnp.expand_dims(known_poses_C, axis=0), # 1 x N x 4 x 4
+        object_indices # (N,)
+    )[0, :, :, :3]
+    known_rendered_depthvals = known_rendered_image[..., 2] # w x h x 1
+
+    # 3. Get list of (target obj depth image) - (known obj depth image)
+    # P x w x h x 3
+    diff_depthvals = known_rendered_depthvals - target_rendered_depthvals
+
+    # 4. Count the number of pixels in each image where the depth is positive
+    # (P,)
+    num_visible_pixels = jnp.sum(diff_depthvals > 0, axis=(1,2))
+
+    # 5. threshold
+    # (P,)
+    is_visible = num_visible_pixels > 4
+
+    return is_visible
