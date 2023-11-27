@@ -1,4 +1,9 @@
+from pydrake.all import (
+    RigidTransform,
+    RotationMatrix,
+)
 import numpy as np
+import sponana.hardcoded_cameras
 
 def check_collision(q_current, spot_boundary1, table_poses, table_boundary1):
     """q_current: robot current position, in terms of XYtheta 
@@ -56,30 +61,38 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
     rng = np.random.default_rng()
     Q[0] = q_start
     print("Q_start in Q", Q)
-    goal_threshold = 0.05
+    goal_threshold = 0.03
     goal_reached = False
     goal_distance = 20000000
     n = 1
+    is_collision = False
     while n < N:
-        q_sample = rng.uniform(-1, 1, (1, 3))[0]
-        q_sample[2] = q_goal[2]
-        #print("plant q_sample:", q_sample)
-        distance_sq = np.sum((Q[:n] - q_sample) ** 2, axis=1)
-        closest = np.argmin(distance_sq)
-        distance = np.sqrt(distance_sq[closest])
-        if distance > max_length:
-            q_sample = Q[closest] + (max_length / distance) * (
-                q_sample - Q[closest]
-            )
+        if goal_distance > goal_threshold or is_collision == True:
+            q_sample = rng.uniform(-1, 1, (1, 3))[0]
+            q_sample[2] = q_goal[2]
+            #print("plant q_sample:", q_sample)
+            distance_sq = np.sum((Q[:n] - q_sample) ** 2, axis=1)
+            closest = np.argmin(distance_sq)
+            distance = np.sqrt(distance_sq[closest])
+            if distance > max_length:
+                q_sample = Q[closest] + (max_length / distance) * (
+                    q_sample - Q[closest]
+                )
+        else:
+            q_sample = q_goal
+            print("q_sample = q_goal", q_sample)
+            print("goal_dist:", goal_distance)
 
-        if check_multiple_collisions(q_sample, spot_boundary, obstacle_poses, obstacle_boundaries) == True: 
+        if check_multiple_collisions(q_sample, spot_boundary, obstacle_poses, obstacle_boundaries) == True:
+            is_collision = True
             continue
+        else:
+            is_collision = False
 
         Q[n] = q_sample
-        
         goal_distance = np.sqrt(np.sum((q_goal- Q[n]) ** 2))
         n += 1
-        if goal_distance < goal_threshold:
+        if goal_distance < 1e-5:
             goal_reached = True
             break
     return goal_reached, n, Q, goal_distance
@@ -87,7 +100,8 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
 
 if __name__ == "__main__":
     spot_init_state = [1.00000000e+00, 1.50392176e-12, 3.15001955e+00]
-    spot_boundary = [0.006394396536052227, -9.812158532440662e-05, 0.0009113792330026627]
+    #spot_boundary = [0.006394396536052227, -9.812158532440662e-05, 0.0009113792330026627]
+    spot_boundary = [0.40, 0.60, 0.2]
     table0 = [0.0, 0.0, 0.19925]
     table1 = [0.0, 2.0, 0.19925]
     table2 = [0.0, -2.0, 0.19925]
@@ -113,13 +127,29 @@ if __name__ == "__main__":
     obs_boundaries = [table_bound, table_bound, table_bound,\
                          walls_side_boundaries, walls_side_boundaries, \
                             walls_side_boundaries, walls_side_boundaries, backwall_bound, frontwall_bound]
-    camera_poses_W = [[0.5567144688632728, -0.003735510093671053, 0.495],
-                      [-0.4067672805262673, -0.5122634135249003, 0.495],
-                      [-0.35091572089593653, 0.4881919030929625, 0.495]]
-    q_goal = camera_poses_W[1]
+    #camera_poses_W = [[0.5567144688632728, -0.003735510093671053, 0.495],
+    #                  [-0.4067672805262673, -0.5122634135249003, 0.495],
+    #                  [-0.35091572089593653, 0.4881919030929625, 0.495]]
+    camera_poses_W = sponana.hardcoded_cameras.camera_poses_W
+
+    X_BC = RigidTransform(
+    R=RotationMatrix([
+        [6.123233995736766e-17, -0.4999999999999999, 0.8660254037844387],
+        [-1.0, -3.061616997868382e-17, 5.3028761936245346e-17],
+        [0.0, -0.8660254037844387, -0.4999999999999999],
+    ]),
+    p=[0.44330127018922194, 2.6514380968122674e-18, 0.495],
+    )
+    ###converted q_goal [0.1243116 0.4359377 0.2475   ] converted q_goal [ 0.20894849 -0.47792893  0.2475    ] converted q_goal [-0.4705993  -0.11675488  0.2475    ]
+
+    camera_pose_world = [camera_W @ X_BC for camera_W in camera_poses_W]
+    q_goal0 = camera_pose_world[0].translation()
+    q_goal1 = camera_pose_world[1].translation()
+    q_goal2 = camera_pose_world[2].translation()
+    print("converted q_goal", q_goal0, "converted q_goal", q_goal1, "converted q_goal", q_goal2)
 
     #goal_reached, n, Q = basic_rrt(spot_init_state, q_goal, spot_boundary, table_poses, tables_boundaries)
-    goal_reached, n, Q, goal_distance = basic_rrt(spot_init_state, q_goal, np.asarray(spot_boundary), np.asarray(obs_poses), np.asarray(obs_boundaries))
+    goal_reached, n, Q, goal_distance = basic_rrt(spot_init_state, q_goal0, np.asarray(spot_boundary), np.asarray(obs_poses), np.asarray(obs_boundaries))
     #print("goal_reached:", goal_reached,"number:", n)
     if goal_reached == True:
         for i in range(n):
