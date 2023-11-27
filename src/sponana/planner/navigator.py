@@ -11,7 +11,11 @@ from pydrake.all import (
     State,
 )
 
-# from ..rrt_2 import basic_rrt
+from ..rrt_2 import basic_rrt, rrt_test
+
+def rrt_planner_dummy():
+    Q, Q_split_arr = rrt_test()
+    return Q_split_arr
 
 
 def dummmy_planner(q_start, q_goal, num_steps: int = 20) -> list:
@@ -20,6 +24,7 @@ def dummmy_planner(q_start, q_goal, num_steps: int = 20) -> list:
     q_start = np.array(q_start)
     q_goal = np.array(q_goal)
     trajectory = [(q_goal - q_start) * t + q_start for t in steps]
+    print("trajectory",trajectory)
     return trajectory
 
 
@@ -66,8 +71,8 @@ class Navigator(LeafSystem):
 
         # Invoke the planner to get a sequence of positions
         # TODO: replace this with a real planner
-        trajectory = dummmy_planner(current_position, target_position)
-
+        #trajectory = dummmy_planner(current_position, target_position)
+        trajectory = rrt_planner_dummy()
         if self._meshcat:
             for t, pose in enumerate(trajectory):
                 # convert position to pose for plotting

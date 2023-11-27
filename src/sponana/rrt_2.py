@@ -97,8 +97,7 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
             break
     return goal_reached, n, Q, goal_distance
 
-
-if __name__ == "__main__":
+def rrt_test():
     spot_init_state = [1.00000000e+00, 1.50392176e-12, 3.15001955e+00]
     #spot_boundary = [0.006394396536052227, -9.812158532440662e-05, 0.0009113792330026627]
     spot_boundary = [0.40, 0.60, 0.2]
@@ -151,7 +150,16 @@ if __name__ == "__main__":
     #goal_reached, n, Q = basic_rrt(spot_init_state, q_goal, spot_boundary, table_poses, tables_boundaries)
     goal_reached, n, Q, goal_distance = basic_rrt(spot_init_state, q_goal0, np.asarray(spot_boundary), np.asarray(obs_poses), np.asarray(obs_boundaries))
     #print("goal_reached:", goal_reached,"number:", n)
+    Q_split_arr = []
     if goal_reached == True:
         for i in range(n):
             print("path node:",i, Q[i])
+            Q_split_arr.append(Q[i])
+    Q_split_arr = np.array(Q_split_arr)
     print("goal_reached:", goal_reached,"number:", n, "goal_distance:", goal_distance)
+
+    print("split:", Q_split_arr, Q_split_arr.shape)
+    return Q, Q_split_arr
+
+if __name__ == "__main__":
+    rrt_test()
