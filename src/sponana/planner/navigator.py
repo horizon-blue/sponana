@@ -67,7 +67,7 @@ class Navigator(LeafSystem):
         current_position = self.get_spot_state_input_port().Eval(context)[:3]
         # FIXME: hard code the goal for now
         # target_position = self.get_target_position_input_port().Eval(context)
-        target_position = [2.4, 1.15, 1.65]
+        #target_position = [2.4, 1.15, 1.65]
 
         # Invoke the planner to get a sequence of positions
         # TODO: replace this with a real planner

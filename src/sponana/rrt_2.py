@@ -9,14 +9,15 @@ def check_collision(q_current, spot_boundary1, table_poses, table_boundary1):
     """q_current: robot current position, in terms of XYtheta 
     table_poses: list of possible collisions
     """
-    spot_boundary = spot_boundary1//2
-    table_boundary = table_boundary1//2
-    if q_current[0] + spot_boundary[0] > q_current[0] - spot_boundary[0]:
-        spot_x_min = q_current[0] - spot_boundary[0]
-        spot_x_max = q_current[0] + spot_boundary[0]
+    spot_boundary = spot_boundary1/2
+    table_boundary = table_boundary1/2
+    if q_current[0] > q_current[0] + 2*spot_boundary[0]:
+        spot_x_min = q_current[0] + 2*spot_boundary[0]
+        spot_x_max = q_current[0] #+ spot_boundary[0]
     else: 
-        spot_x_min = q_current[0] + spot_boundary[0]
-        spot_x_max = q_current[0] - spot_boundary[0]
+        spot_x_min = q_current[0]# + spot_boundary[0]
+        spot_x_max = q_current[0] + 2*spot_boundary[0]
+
     if q_current[1] + spot_boundary[1] > q_current[1] - spot_boundary[1]:
         spot_y_min = q_current[1] - spot_boundary[1]
         spot_y_max = q_current[1] + spot_boundary[1]
@@ -61,7 +62,7 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
     rng = np.random.default_rng()
     Q[0] = q_start
     print("Q_start in Q", Q)
-    goal_threshold = 0.03
+    goal_threshold = 0.26
     goal_reached = False
     goal_distance = 20000000
     n = 1
@@ -79,6 +80,7 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
                     q_sample - Q[closest]
                 )
         else:
+            break
             q_sample = q_goal
             print("q_sample = q_goal", q_sample)
             print("goal_dist:", goal_distance)
@@ -100,7 +102,7 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
 def rrt_test():
     spot_init_state = [1.00000000e+00, 1.50392176e-12, 3.15001955e+00]
     #spot_boundary = [0.006394396536052227, -9.812158532440662e-05, 0.0009113792330026627]
-    spot_boundary = [0.40, 0.60, 0.2]
+    spot_boundary = [1.1, 0.5, 0.2]
     table0 = [0.0, 0.0, 0.19925]
     table1 = [0.0, 2.0, 0.19925]
     table2 = [0.0, -2.0, 0.19925]

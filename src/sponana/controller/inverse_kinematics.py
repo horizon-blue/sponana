@@ -58,7 +58,7 @@ def solve_ik(
     q0[:3] = base_position
     q0[3:10] = q_nominal_arm
 
-    # Target position and rotatio
+    # Target position and rotation
     p_WT = X_WT.translation()
     R_WT = X_WT.rotation()
 
