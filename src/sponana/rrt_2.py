@@ -56,7 +56,7 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
     rng = np.random.default_rng()
     Q[0] = q_start
     print("Q_start in Q", Q)
-    goal_threshold = 0.01
+    goal_threshold = 0.05
     goal_reached = False
     goal_distance = 20000000
     n = 1
@@ -78,10 +78,10 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
         Q[n] = q_sample
         
         goal_distance = np.sqrt(np.sum((q_goal- Q[n]) ** 2))
+        n += 1
         if goal_distance < goal_threshold:
             goal_reached = True
             break
-        n += 1
     return goal_reached, n, Q, goal_distance
 
 
