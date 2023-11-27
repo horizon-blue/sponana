@@ -9,13 +9,12 @@ class PositionCombiner(LeafSystem):
     positions of the base and the arm.
     """
 
-    def __init__(self):
+    def __init__(self, use_teleop: bool = True):
         super().__init__()
         # I/O
-        # self.DeclareVectorInputPort("base_position", 3)
         # FIXME: allow it to be 10 for now becuase I havn't figured out how to get rid
         # of extra joints in the slider
-        self.DeclareVectorInputPort("base_position", 10)
+        self.DeclareVectorInputPort("base_position", 10 if use_teleop else 3)
         self.DeclareVectorInputPort("arm_position", 7)
         self.DeclareVectorOutputPort("position", 10, self._combine_position)
 
