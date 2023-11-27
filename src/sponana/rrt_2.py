@@ -1,9 +1,11 @@
 import numpy as np
 
-def check_collision(q_current, spot_boundary, table_poses, table_boundary):
+def check_collision(q_current, spot_boundary1, table_poses, table_boundary1):
     """q_current: robot current position, in terms of XYtheta 
     table_poses: list of possible collisions
     """
+    spot_boundary = spot_boundary1//2
+    table_boundary = table_boundary1//2
     if q_current[0] + spot_boundary[0] > q_current[0] - spot_boundary[0]:
         spot_x_min = q_current[0] - spot_boundary[0]
         spot_x_max = q_current[0] + spot_boundary[0]
@@ -56,10 +58,10 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
     print("Q_start in Q", Q)
     goal_threshold = 0.01
     goal_reached = False
-
+    goal_distance = 20000000
     n = 1
     while n < N:
-        q_sample = rng.uniform(-6, 6, (1, 3))[0]
+        q_sample = rng.uniform(-1, 1, (1, 3))[0]
         q_sample[2] = q_goal[2]
         #print("plant q_sample:", q_sample)
         distance_sq = np.sum((Q[:n] - q_sample) ** 2, axis=1)
@@ -75,12 +77,12 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
 
         Q[n] = q_sample
         
-        goal_distance = np.sum((q_goal- Q[n]) ** 2)
+        goal_distance = np.sqrt(np.sum((q_goal- Q[n]) ** 2))
         if goal_distance < goal_threshold:
             goal_reached = True
             break
         n += 1
-    return goal_reached, n, Q
+    return goal_reached, n, Q, goal_distance
 
 
 if __name__ == "__main__":
@@ -114,12 +116,12 @@ if __name__ == "__main__":
     camera_poses_W = [[0.5567144688632728, -0.003735510093671053, 0.495],
                       [-0.4067672805262673, -0.5122634135249003, 0.495],
                       [-0.35091572089593653, 0.4881919030929625, 0.495]]
-    q_goal = camera_poses_W[2]
+    q_goal = camera_poses_W[1]
 
     #goal_reached, n, Q = basic_rrt(spot_init_state, q_goal, spot_boundary, table_poses, tables_boundaries)
-    goal_reached, n, Q = basic_rrt(spot_init_state, q_goal, spot_boundary, obs_poses, obs_boundaries)
-    print("goal_reached:", goal_reached,"number:", n)
+    goal_reached, n, Q, goal_distance = basic_rrt(spot_init_state, q_goal, np.asarray(spot_boundary), np.asarray(obs_poses), np.asarray(obs_boundaries))
+    #print("goal_reached:", goal_reached,"number:", n)
     if goal_reached == True:
         for i in range(n):
             print("path node:",i, Q[i])
-
+    print("goal_reached:", goal_reached,"number:", n, "goal_distance:", goal_distance)
