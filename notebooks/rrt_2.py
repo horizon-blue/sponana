@@ -49,19 +49,19 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
     q_goal: X and Y of end Spot position
     """
     max_length = 6
-    N = 10000
+    N = 20000
     Q = np.empty((N, 3))
     rng = np.random.default_rng()
     Q[0] = q_start
     print("Q_start in Q", Q)
-    goal_threshold = 0.1
+    goal_threshold = 0.01
     goal_reached = False
-    #start = np.empty((N, 3))
-    #end = np.empty((N, 3))
-    n = 0
+
+    n = 1
     while n < N:
-        q_sample = rng.random((1, 3))[0]
-        print("plant q_sample:", q_sample)
+        q_sample = rng.uniform(-6, 6, (1, 3))[0]
+        q_sample[2] = q_goal[2]
+        #print("plant q_sample:", q_sample)
         distance_sq = np.sum((Q[:n] - q_sample) ** 2, axis=1)
         closest = np.argmin(distance_sq)
         distance = np.sqrt(distance_sq[closest])
@@ -74,11 +74,12 @@ def basic_rrt(q_start, q_goal, spot_boundary, obstacle_poses, obstacle_boundarie
             continue
 
         Q[n] = q_sample
-        n += 1
-        goal_distance = np.sum((q_goal- Q[n]) ** 2, axis=1)
+        
+        goal_distance = np.sum((q_goal- Q[n]) ** 2)
         if goal_distance < goal_threshold:
             goal_reached = True
             break
+        n += 1
     return goal_reached, n, Q
 
 
@@ -88,14 +89,37 @@ if __name__ == "__main__":
     table0 = [0.0, 0.0, 0.19925]
     table1 = [0.0, 2.0, 0.19925]
     table2 = [0.0, -2.0, 0.19925]
-    tables_boundaries = [[0.49, 0.63, 0.015], [0.49, 0.63, 0.015], [0.49, 0.63, 0.015]]
+    table_bound = [0.49, 0.63, 0.015]
+    tables_boundaries = [table_bound, table_bound, table_bound]
     table_poses = [table0, table1, table2]
-
+    wall4 = [0.0, -3.5, 0.445]
+    wall5 = [0.0, -1.5, 0.445]
+    wall6 = [0.0, 1.5, 0.445]
+    wall7 = [0.0, 3.0, 0.445]
+    backwall = [-1.25, -0.25, 0.445]
+    backwall_bound = [0.015, 6.49, 2.63]
+    front_wall = [6.25, -0.25, 0.445]
+    frontwall_bound = [0.015, 6.49, 2.63]
+    #2.63
+    walls_side_boundaries = [2.49, 0.015, 2.63]
+    wall_poses = [wall4, wall5, wall6, wall7, backwall]
+    wall_bounds = [walls_side_boundaries, walls_side_boundaries, walls_side_boundaries, walls_side_boundaries, backwall_bound]
+    
+    
+    obs_poses = [table0, table1, table2, \
+                    wall4, wall5, wall6, wall7, backwall,front_wall]
+    obs_boundaries = [table_bound, table_bound, table_bound,\
+                         walls_side_boundaries, walls_side_boundaries, \
+                            walls_side_boundaries, walls_side_boundaries, backwall_bound, frontwall_bound]
     camera_poses_W = [[0.5567144688632728, -0.003735510093671053, 0.495],
                       [-0.4067672805262673, -0.5122634135249003, 0.495],
                       [-0.35091572089593653, 0.4881919030929625, 0.495]]
-    q_goal = camera_poses_W[0]
+    q_goal = camera_poses_W[2]
 
-    goal_reached, n, Q = basic_rrt(spot_init_state, q_goal, spot_boundary, table_poses, tables_boundaries)
-    print("goal_reached:", goal_reached,"number:", n, "path:", Q)
+    #goal_reached, n, Q = basic_rrt(spot_init_state, q_goal, spot_boundary, table_poses, tables_boundaries)
+    goal_reached, n, Q = basic_rrt(spot_init_state, q_goal, spot_boundary, obs_poses, obs_boundaries)
+    print("goal_reached:", goal_reached,"number:", n)
+    if goal_reached == True:
+        for i in range(n):
+            print("path node:",i, Q[i])
 
