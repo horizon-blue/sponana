@@ -20,17 +20,18 @@ class SpotArmIKController(LeafSystem):
     Otherwise, it will fold the arm back to the nominal pose.
     """
 
-    def __init__(self, plant: MultibodyPlant, enabled: bool = True):
+    def __init__(
+        self, plant: MultibodyPlant, enabled: bool = True, use_teleop: bool = True
+    ):
         super().__init__()
 
         self._plant = plant
         self.DeclareAbstractInputPort(
             "desired_pose", AbstractValue.Make(RigidTransform())
         )
-        # self.DeclareVectorInputPort("base_position", 3)
         # FIXME: allow it to be 10 for now becuase I havn't figured out how to get rid
         # of extra joints in the slider
-        self.DeclareVectorInputPort("base_position", 10)
+        self.DeclareVectorInputPort("base_position", 10 if use_teleop else 3)
         self.DeclareVectorOutputPort("desired_spot_arm_position", 7, self._solve_ik)
         self._last_solve = time.time()
         self._last_state = q_nominal_arm

@@ -1,6 +1,7 @@
 import copy
 import math
 import random
+from dataclasses import dataclass
 
 import numpy as np
 from IPython.display import HTML, display
@@ -40,7 +41,8 @@ from sponana.perception import (
     add_body_pose_extractor,
     add_camera_pose_extractor,
 )
-from dataclasses import dataclass
+from sponana.planner import Navigator
+
 
 @dataclass
 class TableSceneSpec:
@@ -53,11 +55,13 @@ class TableSceneSpec:
     - object_contact_params is a list of tuples (x, y, theta, face). face is in (0, 1, 2)
         and indicates which face of the object is in contact with the table.
     """
+
     has_banana: bool = False
     banana_contact_params: tuple = None
     n_objects: int = None
     object_type_indices: list = None
     object_contact_params: list = None
+
 
 def clutter_gen(
     meshcat,
@@ -68,12 +72,17 @@ def clutter_gen(
     simulation_time=-1,
     add_fixed_cameras=True,
     enable_arm_ik=True,
-    table_specs=[TableSceneSpec(has_banana=False), TableSceneSpec(has_banana=True), TableSceneSpec(has_banana=False)]
+    table_specs=[
+        TableSceneSpec(has_banana=False),
+        TableSceneSpec(has_banana=True),
+        TableSceneSpec(has_banana=False),
+    ],
+    use_teleop=True,
 ):
     """
     Generate a Sponana environment consistent with the provided `table_specs`.
     """
-    
+
     # Randomly generate specifications for the tables if any are incomplete
     table_specs = concretize_table_specs(table_specs, rng)
     print(table_specs)
@@ -117,7 +126,7 @@ directives:
         translation: [0, 1.75, 1.0]
         rotation: !Rpy {{ deg: [-75, 0, 0] }}
 """
-    
+
     # Table tops
     scenario_data += f"""
 - add_model:
@@ -150,7 +159,7 @@ directives:
     X_PC:
         translation: [0, -2.0, {table_height}]
 """
-    
+
     # Walls and floor
     scenario_data += f"""
 - add_model:
@@ -197,7 +206,7 @@ directives:
     """
 
     # Add distractor objects
-    for (i, spec) in enumerate(table_specs):
+    for i, spec in enumerate(table_specs):
         for j in range(spec.n_objects):
             scenario_data += f"""
 - add_model:
@@ -259,12 +268,29 @@ model_drivers:
             "spot.controller"
         ).get_multibody_plant_for_control()
         spot_controller = builder.AddSystem(
-            SpotController(spot_plant, meshcat=meshcat, enable_arm_ik=enable_arm_ik)
+            SpotController(
+                spot_plant,
+                meshcat=meshcat,
+                enable_arm_ik=enable_arm_ik,
+                use_teleop=use_teleop,
+            )
         )
         builder.Connect(
             spot_controller.get_output_port(),
             station.GetInputPort("spot.desired_state"),
         )
+
+        if not use_teleop:
+            # planner
+            planner = builder.AddNamedSystem("navigator", Navigator(meshcat=meshcat))
+            builder.Connect(
+                station.GetOutputPort("spot.state_estimated"),
+                planner.get_spot_state_input_port(),
+            )
+            builder.Connect(
+                planner.get_output_port(),
+                spot_controller.GetInputPort("desired_base_position"),
+            )
 
         # Get camera and table poses
         spot_camera_config = scenario.cameras["spot_camera"]
@@ -352,29 +378,42 @@ model_drivers:
     plant_context = plant.GetMyContextFromRoot(context)
 
     # Set the poses of the YCB objects
-    for (i, spec) in enumerate(table_specs):
-        object_poses = list(map((lambda cps: cps_to_pose(cps, i)), spec.object_contact_params))
+    for i, spec in enumerate(table_specs):
+        object_poses = list(
+            map((lambda cps: cps_to_pose(cps, i)), spec.object_contact_params)
+        )
         for j in range(spec.n_objects):
             plant.SetFreeBodyPose(
                 plant_context,
-                plant.get_body(plant.GetBodyIndices(plant.GetModelInstanceByName(f"object{j}_table{i}"))[0]),
-                object_poses[j]
+                plant.get_body(
+                    plant.GetBodyIndices(
+                        plant.GetModelInstanceByName(f"object{j}_table{i}")
+                    )[0]
+                ),
+                object_poses[j],
             )
 
     # Set the pose of the banana
-    banana_table_idx = next((i for i, spec in enumerate(table_specs) if spec.has_banana), None)
+    banana_table_idx = next(
+        (i for i, spec in enumerate(table_specs) if spec.has_banana), None
+    )
     print("banana_table_idx", banana_table_idx)
     print("spec[banana_table_idx].has_banana", table_specs[banana_table_idx].has_banana)
-    banana_pose = cps_to_pose(table_specs[banana_table_idx].banana_contact_params, banana_table_idx)
+    banana_pose = cps_to_pose(
+        table_specs[banana_table_idx].banana_contact_params, banana_table_idx
+    )
     plant.SetFreeBodyPose(
         plant_context,
-        plant.get_body(plant.GetBodyIndices(plant.GetModelInstanceByName(f"banana"))[0]),
-        banana_pose
+        plant.get_body(
+            plant.GetBodyIndices(plant.GetModelInstanceByName(f"banana"))[0]
+        ),
+        banana_pose,
     )
 
     # Run the simulation
     sponana.utils.run_simulation(simulator, meshcat, finish_time=simulation_time)
     return simulator, diagram
+
 
 ### Utils for object generation ###
 def concretize_table_specs(table_specs, rng):
@@ -400,16 +439,18 @@ def concretize_table_specs(table_specs, rng):
         if spec.object_contact_params is None:
             spec.object_contact_params = generate_contact_params(rng, spec.n_objects)
         complete_specs.append(spec)
-    
+
     return complete_specs
+
 
 # Randomly generate contact parameters for n_objects objects.
 # Returns a list of tuples (x, y, theta, face) where face is the face of the object that is in contact with the table.
 # Face will be 0, 1, or 2.
 def generate_contact_params(
-        rng, n_objects,
-        x_upper_bound=0.20,
-        y_upper_bound=0.30,
+    rng,
+    n_objects,
+    x_upper_bound=0.20,
+    y_upper_bound=0.30,
 ):
     x_points, y_points = generate_random_with_min_dist(
         rng, x_upper_bound - 0.1, y_upper_bound - 0.1, n_objects
@@ -417,6 +458,7 @@ def generate_contact_params(
     thetas = [rng.uniform(0, 2 * np.pi) for _ in range(n_objects)]
     faces = [rng.choice(3) for _ in range(n_objects)]
     return list(zip(x_points, y_points, thetas, faces))
+
 
 # Contact parameters = (x, y, theta, face)
 # Convert this to a pose (RigidTransform).
@@ -429,19 +471,17 @@ def cps_to_pose(cps, table_idx):
     if face == 0:
         extra_rot = RotationMatrix.Identity()
     elif face == 1:
-        extra_rot = RotationMatrix.MakeXRotation(np.pi/2)
+        extra_rot = RotationMatrix.MakeXRotation(np.pi / 2)
     elif face == 2:
-        extra_rot = RotationMatrix.MakeYRotation(np.pi/2)
+        extra_rot = RotationMatrix.MakeYRotation(np.pi / 2)
 
     if table_idx == 0:
         y = y + 2.0
     elif table_idx == 2:
         y = y - 2.0
 
-    return RigidTransform(
-        RotationMatrix.MakeZRotation(theta) @ extra_rot,
-        [x, y, 0.4]
-    )
+    return RigidTransform(RotationMatrix.MakeZRotation(theta) @ extra_rot, [x, y, 0.4])
+
 
 def generate_random_with_min_dist(rng, x_upper_range, y_upper_range, num_elements):
     x_points = []
@@ -462,6 +502,7 @@ def generate_random_with_min_dist(rng, x_upper_range, y_upper_range, num_element
                 "appended:", "x_points_append:", x_points, "y_points_append:", y_points
             )
     return x_points, y_points
+
 
 def distance_thres_point(poss_point_x, poss_point_y, x_points, y_points, r_threshold):
     # print("poss_point_x", poss_point_x, "poss_point_y", poss_point_y)
