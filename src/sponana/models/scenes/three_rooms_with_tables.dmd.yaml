@@ -1,0 +1,80 @@
+directives:
+  # Table tops
+  - add_model:
+      name: table_top0
+      file: package://sponana/table_top.sdf
+
+  - add_weld:
+      parent: world
+      child: table_top0::table_top_center
+      X_PC:
+        translation: [0, 0, 0.2]
+
+  - add_model:
+      name: table_top1
+      file: package://sponana/table_top.sdf
+
+  - add_weld:
+      parent: world
+      child: table_top1::table_top_center
+      X_PC:
+        translation: [0, 2.0, 0.2]
+
+  - add_model:
+      name: table_top2
+      file: package://sponana/table_top.sdf
+
+  - add_weld:
+      parent: world
+      child: table_top2::table_top_center
+      X_PC:
+        translation: [0, -2.0, 0.2]
+
+  # Walls and floor
+  - add_model:
+      name: table_top4
+      file: package://sponana/table_top4.sdf
+
+  - add_weld:
+      parent: world
+      child: table_top4::table_top4_center
+
+  - add_model:
+      name: table_top5
+      file: package://sponana/table_top5.sdf
+
+  - add_weld:
+      parent: world
+      child: table_top5::table_top5_center
+
+  - add_model:
+      name: table_top6
+      file: package://sponana/table_top6.sdf
+
+  - add_weld:
+      parent: world
+      child: table_top6::table_top6_center
+
+  - add_model:
+      name: table_top7
+      file: package://sponana/table_top7.sdf
+
+  - add_weld:
+      parent: world
+      child: table_top7::table_top7_center
+
+  - add_model:
+      name: floor
+      file: package://sponana/platform.sdf
+
+  - add_weld:
+      parent: world
+      child: floor::platform_center
+
+  - add_model:
+      name: back_wall
+      file: package://sponana/table_top9.sdf
+
+  - add_weld:
+      parent: world
+      child: back_wall::table_top9_center
