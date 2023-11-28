@@ -46,50 +46,52 @@ def solve_ik(
         collision_bound (float, optional): The minimum allowed distance between Spot and the other
         objects in the scene.
     """
-    ik = InverseKinematics(plant, context)
-    q = ik.q()  # Get variables for MathematicalProgram
-    prog = ik.prog()  # Get MathematicalProgram
+    for _ in range(200):
+        ik = InverseKinematics(plant, context)
+        q = ik.q()  # Get variables for MathematicalProgram
+        prog = ik.prog()  # Get MathematicalProgram
 
-    world_frame = plant.world_frame()
-    target_frame = plant.GetFrameByName(target_frame_name)
+        world_frame = plant.world_frame()
+        target_frame = plant.GetFrameByName(target_frame_name)
 
-    # nominal pose
-    q0 = np.zeros(len(q))
-    q0[:3] = base_position
-    q0[3:10] = q_nominal_arm
+        # nominal pose
+        q0 = np.zeros(len(q))
+        q0[:3] = base_position 
+        q0[3:10] = q_nominal_arm
 
-    # Target position and rotation
-    p_WT = X_WT.translation()
-    R_WT = X_WT.rotation()
+        # Target position and rotation
+        p_WT = X_WT.translation()
+        R_WT = X_WT.rotation()
 
-    # Constraints
-    ik.AddPositionConstraint(
-        frameA=world_frame,
-        frameB=target_frame,
-        p_BQ=np.zeros(3),
-        p_AQ_lower=p_WT - position_bound,
-        p_AQ_upper=p_WT + position_bound,
-    )
-    ik.AddOrientationConstraint(
-        frameAbar=world_frame,
-        R_AbarA=R_WT,
-        frameBbar=target_frame,
-        R_BbarB=RotationMatrix(),
-        theta_bound=rotation_bound,
-    )
-    # # This is currently failing for some reason
-    # # collision constraint
-    # ik.AddMinimumDistanceLowerBoundConstraint(
-    #     collision_bound, influence_distance_offset=0.1
-    # )
+        # Constraints
+        ik.AddPositionConstraint(
+            frameA=world_frame,
+            frameB=target_frame,
+            p_BQ=np.zeros(3),
+            p_AQ_lower=p_WT - position_bound,
+            p_AQ_upper=p_WT + position_bound,
+        )
+        ik.AddOrientationConstraint(
+            frameAbar=world_frame,
+            R_AbarA=R_WT,
+            frameBbar=target_frame,
+            R_BbarB=RotationMatrix(),
+            theta_bound=rotation_bound,
+        )
+        # # This is currently failing for some reason
+        # # collision constraint
+        # ik.AddMinimumDistanceLowerBoundConstraint(
+        #     collision_bound, influence_distance_offset=0.001
+        # )
 
-    if fix_base:
-        prog.AddConstraint(eq(q[:3], base_position))
+        if fix_base:
+            prog.AddConstraint(eq(q[:3], base_position))
 
-    # Let's get started
-    prog.AddQuadraticErrorCost(np.identity(len(q)), q0, q)
-    prog.SetInitialGuess(q, q0)
+        # Let's get started
+        prog.AddQuadraticErrorCost(np.identity(len(q)), q0, q)
+        prog.SetInitialGuess(q, np.random.rand(len(q)))
 
-    result = Solve(ik.prog())
-    assert result.is_success(), "IK failed :("
-    return result.GetSolution(q)
+        result = Solve(ik.prog())
+        if result.is_success():
+            return result.GetSolution(q)
+    raise AssertionError("IK failed :(")

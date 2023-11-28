@@ -2,6 +2,7 @@
 <robot name="spot_gripper">
   <link name="gripper">
   </link>
+  <link name="foo"></link>
 
   <link name="arm_link_wr1">
     <visual>
@@ -99,5 +100,11 @@
     <origin rpy="0 0 1.57" xyz="0. -0.08 0.0"/>
     <parent link="gripper"/>
     <child link="arm_link_wr1"/>
+  </joint>
+
+  <joint name="foo_weld" type="fixed">
+    <origin rpy="0 0 1.57" xyz="0. -0.08 0.0"/>
+    <parent link="arm_link_wr1"/>
+    <child link="foo"/>
   </joint>
 </robot>

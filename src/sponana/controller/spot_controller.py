@@ -50,10 +50,11 @@ def make_spot_controller(
     position_combiner = builder.AddNamedSystem(
         "position_combiner", PositionCombiner(use_teleop)
     )
-    builder.Connect(
-        spot_arm_ik_controller.get_output_port(),
-        position_combiner.get_arm_position_input_port(),
-    )
+    if enable_arm_ik:
+        builder.Connect(
+            spot_arm_ik_controller.get_output_port(),
+            position_combiner.get_arm_position_input_port(),
+        )
     builder.Connect(
         position_combiner.get_output_port(), position_to_state.get_input_port()
     )
@@ -78,6 +79,11 @@ def make_spot_controller(
             teleop.get_output_port(),
             spot_arm_ik_controller.get_base_position_input_port(),
         )
+
+        if not enable_arm_ik:
+            builder.Connect(
+                teleop.get_output_port(), position_combiner.get_arm_position_input_port()
+            )
 
     # Export I/O ports
     if not use_teleop:

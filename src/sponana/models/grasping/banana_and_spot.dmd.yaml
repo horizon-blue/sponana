@@ -1,0 +1,36 @@
+directives:
+- add_frame:
+    name: banana_origin
+    X_PF:
+        base_frame: world
+        rotation: !Rpy { deg: [0.0, 0.0, 0.0 ]}
+        translation: [0, 0, 0.515]
+
+- add_model:
+    name: banana
+    file: package://sponana/banana/banana.sdf
+
+- add_weld:
+    parent: banana_origin
+    child: banana::banana
+
+- add_model:
+    name: spot
+    file: package://sponana/grasping/spot.urdf
+    default_joint_positions:
+        # fold the arm
+        arm_sh1: [-3.1]
+        arm_el0: [3.1]
+        # initial position
+        base_x: [1.0]
+        base_rz: [3.14]
+
+- add_model:
+    name: table_top0
+    file: package://sponana/table_top.sdf
+
+- add_weld:
+    parent: world
+    child: table_top0::table_top_center
+    X_PC:
+        translation: [0, 0, 0.47]

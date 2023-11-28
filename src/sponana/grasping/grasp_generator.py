@@ -60,21 +60,25 @@ def get_unified_point_cloud(system, context, meshcat):
     plant = system.GetSubsystemByName("plant")
     plant_context = plant.GetMyContextFromRoot(context)
 
-    meshcat.Delete()
-    meshcat.SetProperty("/Background", "visible", False)
+    if meshcat is not None:
+        meshcat.Delete()
+        meshcat.SetProperty("/Background", "visible", False)
 
     pcd = []
     for i in range(3):
         cloud = system.GetOutputPort(f"camera{i}_point_cloud").Eval(context)
-        meshcat.SetObject(f"pointcloud{i}", cloud, point_size=0.001)
-        meshcat.SetProperty(f"pointcloud{i}", "visible", False)
+
+        if meshcat is not None:
+            meshcat.SetObject(f"pointcloud{i}", cloud, point_size=0.001)
+            meshcat.SetProperty(f"pointcloud{i}", "visible", False)
 
         # Crop to region of interest.
         pcd.append(
             cloud.Crop(lower_xyz=[-0.3, -0.3, -0.3], upper_xyz=[0.3, 0.3, 0.3])
         )
-        meshcat.SetObject(f"pointcloud{i}_cropped", pcd[i], point_size=0.001)
-        meshcat.SetProperty(f"pointcloud{i}_cropped", "visible", False)
+        if meshcat is not None:
+            meshcat.SetObject(f"pointcloud{i}_cropped", pcd[i], point_size=0.001)
+            meshcat.SetProperty(f"pointcloud{i}_cropped", "visible", False)
 
         pcd[i].EstimateNormals(radius=0.1, num_closest=30)
 
@@ -86,16 +90,18 @@ def get_unified_point_cloud(system, context, meshcat):
     # Merge point clouds.  (Note: You might need something more clever here for
     # noisier point clouds; but this can often work!)
     merged_pcd = Concatenate(pcd)
-    meshcat.SetObject("merged", merged_pcd, point_size=0.001)
+    if meshcat is not None:
+        meshcat.SetObject("merged", merged_pcd, point_size=0.001)
 
     # Voxelize down-sample.  (Note that the normals still look reasonable)
     down_sampled_pcd = merged_pcd.VoxelizedDownSample(voxel_size=0.005)
-    meshcat.SetObject("down_sampled", down_sampled_pcd, point_size=0.001)
-    meshcat.SetLineSegments(
-        "down_sampled_normals",
-        down_sampled_pcd.xyzs(),
-        down_sampled_pcd.xyzs() + 0.01 * down_sampled_pcd.normals(),
-    )
+    if meshcat is not None:
+        meshcat.SetObject("down_sampled", down_sampled_pcd, point_size=0.001)
+        meshcat.SetLineSegments(
+            "down_sampled_normals",
+            down_sampled_pcd.xyzs(),
+            down_sampled_pcd.xyzs() + 0.01 * down_sampled_pcd.normals(),
+        )
 
     return down_sampled_pcd
 
