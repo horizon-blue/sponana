@@ -11,7 +11,7 @@ from pydrake.all import (
     State,
 )
 
-from ..rrt_2 import basic_rrt, rrt_test
+from ..rrt_2_incorrect_collision_check_version import basic_rrt, rrt_test
 """
 def rrt_planner_dummy():
     Q, Q_split_arr = rrt_test()
@@ -122,7 +122,7 @@ class Navigator(LeafSystem):
         # target_position = self.get_target_position_input_port().Eval(context)
         # target_position = [2.4, 1.15, 1.65]
 
-        trajectory = check_collision_move_spot()
+        trajectory = dummmy_planner #check_collision_move_spot()
         if self._meshcat:
             for t, pose in enumerate(trajectory):
                 # convert position to pose for plotting
