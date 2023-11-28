@@ -12,13 +12,11 @@ from pydrake.all import (
 )
 
 from ..rrt_2 import basic_rrt, rrt_test
-#/home/rarama/Documents/research/sponana/notebooks/rrt_3.ipynb
-#/home/rarama/Documents/research/sponana/src/sponana/planner/navigator.py
-
+"""
 def rrt_planner_dummy():
     Q, Q_split_arr = rrt_test()
     return Q_split_arr
-
+"""
 
 def interpolate_positions(q_start, q_goal, num_steps: int = 20) -> list:
     """A placeholder planner that simply interpolates between the current position and the target position."""
@@ -89,7 +87,7 @@ class Navigator(LeafSystem):
 
     def get_target_position_input_port(self):
         return self.get_input_port(1)
-    """
+   
     def _execute_trajectory(self, context: Context, state: State):
         #for executing the trajectory calculated after RRT
         current_position = self.get_spot_state_input_port().Eval(context)[:3]
@@ -116,7 +114,7 @@ class Navigator(LeafSystem):
         # initial state
         state.set_value(self._base_position, trajectory[0])
         state.set_value(self._traj_idx, [0])
-        """
+        
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
         current_position = self.get_spot_state_input_port().Eval(context)[:3]
@@ -124,7 +122,7 @@ class Navigator(LeafSystem):
         # target_position = self.get_target_position_input_port().Eval(context)
         # target_position = [2.4, 1.15, 1.65]
 
-        trajectory = check_collision_move_spot()
+        trajectory = dummmy_planner() #check_collision_move_spot()
         if self._meshcat:
             for t, pose in enumerate(trajectory):
                 # convert position to pose for plotting
