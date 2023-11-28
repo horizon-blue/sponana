@@ -38,11 +38,10 @@ def check_collision_move_spot(q0, q1):
 
 
 def dummmy_planner(*args, **kwargs):
-    rrt_output = [
-        (1.0, 1.50392176e-12, 3.15001955),
-        (0.907556839855539, -0.7559660954414523, 3.1669330562841598),
-        (0.20894849, -0.47792893, 0.2475),
-    ]
+    rrt_output = [(1.0, 1.50392176e-12, 3.15001955),
+ (0.022263616038337708, 0.6505333766360386, 3.3034703766912483),
+ (-1.7086880002765834, -1.2946628398003839, 1.0752850144873116),
+ (-2.0, -2.0, 3.15001955)]
     trajectory = []
     # interpolate between RRT keypoints to get a smoother trajectory
     for q_start, q_goal in zip(rrt_output[:-1], rrt_output[1:]):
