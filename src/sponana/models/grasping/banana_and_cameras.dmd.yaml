@@ -6,7 +6,7 @@ directives:
     X_PF:
         base_frame: world
         rotation: !Rpy { deg: [0.0, 0.0, 0.0 ]}
-        translation: [0, 0, 0.09515]
+        translation: [0, 0, 0.015]
 
 - add_model:
     name: banana

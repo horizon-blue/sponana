@@ -139,8 +139,7 @@ def GraspCandidateCost(
     if gripper_body_index:
         wsg = plant.get_body(gripper_body_index)
     else:
-        wsg = plant.GetBodyByName("body")
-        gripper_body_index = wsg.index()
+        assert False, "gripper_body_index is required"
 
     X_G = plant.GetFreeBodyPose(plant_context, wsg)
 
@@ -150,8 +149,8 @@ def GraspCandidateCost(
 
     # Crop to a region inside of the finger box.
     # TODO check this
-    crop_min = [-0.05, 0.1, -0.00625]
-    crop_max = [0.05, 0.1125, 0.00625]
+    crop_min = [-0.05, 0.03, -0.00625]
+    crop_max = [0.05, 0.15, 0.00625]
     indices = np.all(
         (
             crop_min[0] <= p_GC[0, :],
@@ -186,7 +185,7 @@ def GraspCandidateCost(
     if query_object.HasCollisions():
         cost = np.inf
         if verbose:
-            print("Gripper is colliding with the sink!\n")
+            print("Gripper is colliding with something!\n")
             print(f"cost: {cost}")
         return cost
 
@@ -212,13 +211,14 @@ def GraspCandidateCost(
 
     # Reward sum |dot product of normals with gripper x|^2
     cost -= np.sum(n_GC[0, :] ** 2)
+
     if verbose:
         print(f"cost: {cost}")
         print(f"normal terms: {n_GC[0,:]**2}")
     return cost
 
 class ScoreSystem(LeafSystem):
-    def __init__(self, diagram, cloud, wsg_pose_index, meshcat=None):
+    def __init__(self, diagram, cloud, gripper_name, wsg_pose_index, meshcat=None):
         LeafSystem.__init__(self)
         self.meshcat = meshcat
         self._diagram = diagram
@@ -227,7 +227,7 @@ class ScoreSystem(LeafSystem):
         self._plant_context = self._plant.GetMyMutableContextFromRoot(
             self._context
         )
-        wsg = self._plant.GetBodyByName("body")
+        wsg = self._plant.GetBodyByName(gripper_name)
         self._gripper_body_index = wsg.index()
         self._wsg_pose_index = wsg_pose_index
         self._cloud = cloud
@@ -247,6 +247,7 @@ class ScoreSystem(LeafSystem):
             self._diagram,
             self._context,
             self._cloud,
+            gripper_body_index=self._gripper_body_index,
             verbose=True,
             meshcat_path="planning/cost",
             meshcat=self.meshcat,
@@ -291,8 +292,7 @@ def GenerateAntipodalGraspCandidate(
     if wsg_body_index:
         wsg = plant.get_body(wsg_body_index)
     else:
-        wsg = plant.GetBodyByName("body")
-        wsg_body_index = wsg.index()
+        assert False, "wsg_body_index is required"
 
     index = rng.integers(0, cloud.size() - 1)
 
@@ -314,7 +314,7 @@ def GenerateAntipodalGraspCandidate(
     Gy = y - np.dot(y, Gx) * Gx
     Gz = np.cross(Gx, Gy)
     R_WG = RotationMatrix(np.vstack((Gx, Gy, Gz)).T)
-    p_GS_G = [0.054 - 0.01, 0.10625, 0]
+    p_GS_G = [0.054 - 0.01, 0.10625, 0.1]
 
     # Try orientations from the center out
     min_roll = -np.pi / 3.0
@@ -330,7 +330,7 @@ def GenerateAntipodalGraspCandidate(
 
         X_G = RigidTransform(R_WG2, p_WG)
         plant.SetFreeBodyPose(plant_context, wsg, X_G)
-        cost = GraspCandidateCost(diagram, context, cloud, adjust_X_G=True)
+        cost = GraspCandidateCost(diagram, context, cloud, adjust_X_G=True, gripper_body_index=wsg_body_index)
         X_G = plant.GetFreeBodyPose(plant_context, wsg)
         if np.isfinite(cost):
             return cost, X_G
@@ -338,3 +338,5 @@ def GenerateAntipodalGraspCandidate(
         # draw_grasp_candidate(X_G, f"collision/{theta:.1f}")
 
     return np.inf, None
+
+# min z = 0.16
