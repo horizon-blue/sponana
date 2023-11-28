@@ -1,10 +1,11 @@
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import pydot
 from IPython.display import SVG, display
 from manipulation import ConfigureParser
-from pydrake.all import Diagram, Meshcat, PackageMap, Parser, Simulator
+from pydrake.all import Context, Diagram, Meshcat, PackageMap, Parser, Simulator
 
 
 def configure_parser(parser: Parser):
@@ -55,3 +56,21 @@ def run_simulation(simulator: Simulator, meshcat: Meshcat, finish_time=2.0):
         meshcat.StartRecording()
         simulator.AdvanceTo(finish_time)
         meshcat.PublishRecording()
+
+
+def set_spot_positions(
+    spot_state: np.ndarray,
+    diagram: Diagram,
+    root_context: Context,
+    visualize: bool = True,
+):
+    """Update the Spot's joint positions to the given `spot_state` (a 10-dim vector) in the
+    diagram. If `visualize` is True, the updated diagram will be visualized in Meshcat.
+    """
+    plant = diagram.GetSubsystemByName("station").GetSubsystemByName("plant")
+    plant_context = plant.GetMyContextFromRoot(root_context)
+    plant.SetPositions(plant_context, plant.GetModelInstanceByName("spot"), spot_state)
+
+    if visualize:
+        diagram_context = diagram.GetMyContextFromRoot(root_context)
+        diagram.ForcedPublish(diagram_context)
