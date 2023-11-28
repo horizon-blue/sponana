@@ -12,13 +12,11 @@ from pydrake.all import (
 )
 
 from ..rrt_2 import basic_rrt, rrt_test
-#/home/rarama/Documents/research/sponana/notebooks/rrt_3.ipynb
-#/home/rarama/Documents/research/sponana/src/sponana/planner/navigator.py
-
+"""
 def rrt_planner_dummy():
     Q, Q_split_arr = rrt_test()
     return Q_split_arr
-
+"""
 
 def interpolate_positions(q_start, q_goal, num_steps: int = 20) -> list:
     """A placeholder planner that simply interpolates between the current position and the target position."""
