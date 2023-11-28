@@ -18,7 +18,7 @@ def rrt_planner_dummy():
     return Q_split_arr
 """
 
-def interpolate_positions(q_start, q_goal, num_steps: int = 20) -> list:
+def interpolate_positions(q_start, q_goal, num_steps: int = 10) -> list:
     """A placeholder planner that simply interpolates between the current position and the target position."""
     steps = np.linspace(0, 1, num_steps)
     q_start = np.array(q_start)
@@ -39,9 +39,9 @@ def check_collision_move_spot(q0, q1):
 
 def dummmy_planner(*args, **kwargs):
     rrt_output = [(1.0, 1.50392176e-12, 3.15001955),
- (0.022263616038337708, 0.6505333766360386, 3.3034703766912483),
- (-1.7086880002765834, -1.2946628398003839, 1.0752850144873116),
- (-2.0, -2.0, 3.15001955)]
+ (0.7349677349030053, -0.6294691486912954, 2.112338988977431),
+ (3.906649464133533, -3.3702483178220946, 1.3554633263235714),
+ (1.0, -4.0, 3.15001955)]
     trajectory = []
     # interpolate between RRT keypoints to get a smoother trajectory
     for q_start, q_goal in zip(rrt_output[:-1], rrt_output[1:]):
