@@ -1,0 +1,18 @@
+
+directives:
+- add_directives:
+    file: package://sponana/grasping/banana_and_cameras.dmd.yaml
+
+- add_model:
+    name: _gripper
+    file: package://sponana/grasping/spot_gripper.urdf
+
+- add_model:
+    name: table_top0
+    file: package://sponana/table_top.sdf
+
+- add_weld:
+    parent: world
+    child: table_top0::table_top_center
+    X_PC:
+        translation: [0, 0, -0.03]
