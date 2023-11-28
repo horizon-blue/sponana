@@ -30,11 +30,11 @@ def interpolate_positions(q_start, q_goal, num_steps: int = 20) -> list:
 
 def check_collision_move_spot(q0, q1):
     #q0 and q1 are lists of spot xytheta
-    #rrt_output = [(q0[0],q0[1], q0[2]), (q1[0],q1[1],q1[2])]
-    rrt_output = [
-            (1.0, 1.50392176e-12, 3.15001955),
-            (0.20894849, -0.47792893, 0.2475),
-        ]
+    rrt_output = [(q0[0],q0[1], q0[2]), (q1[0],q1[1],q1[2])]
+    #rrt_output = [
+    #        (1.0, 1.50392176e-12, 3.15001955),
+    #        (0.20894849, -0.47792893, 0.2475),
+    #    ]
     return rrt_output
 
 
