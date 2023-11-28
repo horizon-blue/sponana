@@ -66,7 +66,6 @@ class TableSceneSpec:
 def clutter_gen(
     meshcat,
     rng,
-    table_height=0.2,
     add_spot=True,
     debug=False,
     simulation_time=-1,
@@ -94,7 +93,7 @@ cameras:
         depth: True
         X_PB:
             base_frame: camera0::base
-            translation: [0, 0, {-0.05 + table_height}]
+            translation: [0, 0, 0.15]
             rotation: !Rpy {{ deg: [-90, 0, 0] }}
     """
     if add_spot:
@@ -114,8 +113,11 @@ cameras:
         scenario_data += get_camera_generator_str()
 
     # Visible camera overlooking table 2
-    scenario_data += f"""       
+    scenario_data += """       
 directives:
+- add_directives:
+    file: package://sponana/scenes/three_rooms_with_tables.dmd.yaml
+
 - add_model:
     name: camera0
     file: package://manipulation/camera_box.sdf
@@ -124,86 +126,8 @@ directives:
     child: camera0::base
     X_PC:
         translation: [0, 1.75, 1.0]
-        rotation: !Rpy {{ deg: [-75, 0, 0] }}
+        rotation: !Rpy { deg: [-75, 0, 0] }
 """
-
-    # Table tops
-    scenario_data += f"""
-- add_model:
-    name: table_top0
-    file: package://sponana/table_top.sdf
-
-- add_weld:
-    parent: world
-    child: table_top0::table_top_center
-    X_PC:
-        translation: [0, 0, {table_height}]
-
-- add_model:
-    name: table_top1
-    file: package://sponana/table_top.sdf
-
-- add_weld:
-    parent: world
-    child: table_top1::table_top_center
-    X_PC:
-        translation: [0, 2.0, {table_height}]
-
-- add_model:
-    name: table_top2
-    file: package://sponana/table_top.sdf
-
-- add_weld:
-    parent: world
-    child: table_top2::table_top_center
-    X_PC:
-        translation: [0, -2.0, {table_height}]
-"""
-
-    # Walls and floor
-    scenario_data += f"""
-- add_model:
-    name: table_top4
-    file: package://sponana/table_top4.sdf
-- add_weld:
-    parent: world
-    child: table_top4::table_top4_center
-
-- add_model:
-    name: table_top5
-    file: package://sponana/table_top5.sdf
-- add_weld:
-    parent: world
-    child: table_top5::table_top5_center
-
-- add_model:
-    name: table_top6
-    file: package://sponana/table_top6.sdf
-- add_weld:
-    parent: world
-    child: table_top6::table_top6_center
-
-- add_model:
-    name: table_top7
-    file: package://sponana/table_top7.sdf
-- add_weld:
-    parent: world
-    child: table_top7::table_top7_center
-
-- add_model:
-    name: floor
-    file: package://sponana/platform.sdf
-- add_weld:
-    parent: world
-    child: floor::platform_center
-
-- add_model:
-    name: back_wall
-    file: package://sponana/table_top9.sdf
-- add_weld:
-    parent: world
-    child: back_wall::table_top9_center
-    """
 
     # Add distractor objects
     for i, spec in enumerate(table_specs):
