@@ -27,6 +27,16 @@ def interpolate_positions(q_start, q_goal, num_steps: int = 20) -> list:
     trajectory = (q_goal - q_start) * steps[:, None] + q_start
     return trajectory
 
+def check_collision_move_spot(q0, q1):
+    #q0 and q1 are lists of spot xytheta
+    #rrt_output = [(q0[0],q0[1], q0[2]), (q1[0],q1[1],q1[2])]
+    rrt_output = [
+            (1.0, 1.50392176e-12, 3.15001955),
+            (0.20894849, -0.47792893, 0.2475),
+        ]
+    return rrt_output
+
+
 
 def dummmy_planner(*args, **kwargs):
     rrt_output = [
@@ -78,8 +88,9 @@ class Navigator(LeafSystem):
 
     def get_target_position_input_port(self):
         return self.get_input_port(1)
-
-    def _plan_trajectory(self, context: Context, state: State):
+    
+    def _execute_trajectory(self, context: Context, state: State):
+        """for executing the trajectory calculated after RRT"""
         current_position = self.get_spot_state_input_port().Eval(context)[:3]
         # FIXME: hard code the goal for now
         # target_position = self.get_target_position_input_port().Eval(context)
@@ -89,6 +100,30 @@ class Navigator(LeafSystem):
         # TODO: replace this with a real planner
         # trajectory = dummmy_planner(current_position, target_position)
         trajectory = dummmy_planner()
+        if self._meshcat:
+            for t, pose in enumerate(trajectory):
+                # convert position to pose for plotting
+                pose = RigidTransform(
+                    RotationMatrix.MakeZRotation(pose[2]), [*pose[:2], 0.0]
+                )
+                opacity = 0.2 if t > 0 and t < len(trajectory) - 1 else 1.0
+                AddMeshcatTriad(
+                    self._meshcat, f"trajectory_{t}", X_PT=pose, opacity=opacity
+                )
+
+        self._trajectory = trajectory
+        # initial state
+        state.set_value(self._base_position, trajectory[0])
+        state.set_value(self._traj_idx, [0])
+
+    def _plan_trajectory(self, context: Context, state: State):
+        """for just moving spot to a q_sample position for collision checks in RRT"""
+        current_position = self.get_spot_state_input_port().Eval(context)[:3]
+        # FIXME: hard code the goal for now
+        # target_position = self.get_target_position_input_port().Eval(context)
+        # target_position = [2.4, 1.15, 1.65]
+
+        trajectory = check_collision_move_spot()
         if self._meshcat:
             for t, pose in enumerate(trajectory):
                 # convert position to pose for plotting
