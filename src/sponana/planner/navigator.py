@@ -13,18 +13,34 @@ from pydrake.all import (
 
 from ..rrt_2 import basic_rrt, rrt_test
 
+
 def rrt_planner_dummy():
     Q, Q_split_arr = rrt_test()
     return Q_split_arr
 
 
-def dummmy_planner(q_start, q_goal, num_steps: int = 20) -> list:
+def interpolate_positions(q_start, q_goal, num_steps: int = 20) -> list:
     """A placeholder planner that simply interpolates between the current position and the target position."""
     steps = np.linspace(0, 1, num_steps)
     q_start = np.array(q_start)
     q_goal = np.array(q_goal)
-    trajectory = [(q_goal - q_start) * t + q_start for t in steps]
-    print("trajectory",trajectory)
+    trajectory = (q_goal - q_start) * steps[:, None] + q_start
+    return trajectory
+
+
+def dummmy_planner(*args, **kwargs):
+    rrt_output = [
+        (1.0, 1.50392176e-12, 3.15001955),
+        (0.907556839855539, -0.7559660954414523, 3.1669330562841598),
+        (0.20894849, -0.47792893, 0.2475),
+    ]
+    trajectory = []
+    # interpolate between RRT keypoints to get a smoother trajectory
+    for q_start, q_goal in zip(rrt_output[:-1], rrt_output[1:]):
+        # the interpolation output contains the end points, so here we remove
+        # the last point to avoid duplicates
+        trajectory.extend(interpolate_positions(q_start, q_goal)[:-1])
+    trajectory.append(rrt_output[-1])
     return trajectory
 
 
@@ -67,12 +83,12 @@ class Navigator(LeafSystem):
         current_position = self.get_spot_state_input_port().Eval(context)[:3]
         # FIXME: hard code the goal for now
         # target_position = self.get_target_position_input_port().Eval(context)
-        #target_position = [2.4, 1.15, 1.65]
+        # target_position = [2.4, 1.15, 1.65]
 
         # Invoke the planner to get a sequence of positions
         # TODO: replace this with a real planner
-        #trajectory = dummmy_planner(current_position, target_position)
-        trajectory = rrt_planner_dummy()
+        # trajectory = dummmy_planner(current_position, target_position)
+        trajectory = dummmy_planner()
         if self._meshcat:
             for t, pose in enumerate(trajectory):
                 # convert position to pose for plotting
