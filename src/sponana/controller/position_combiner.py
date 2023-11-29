@@ -14,6 +14,7 @@ class PositionCombiner(LeafSystem):
         # I/O
         # FIXME: allow it to be 10 for now becuase I havn't figured out how to get rid
         # of extra joints in the slider
+        self.use_teleop = use_teleop
         self.DeclareVectorInputPort("base_position", 10 if use_teleop else 3)
         self.DeclareVectorInputPort("arm_position", 10 if use_teleop else 7)
         self.DeclareVectorOutputPort("position", 10, self._combine_position)
