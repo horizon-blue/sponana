@@ -2,54 +2,23 @@ from typing import Optional
 
 import numpy as np
 from manipulation.meshcat_utils import AddMeshcatTriad
+from manipulation.station import MakeHardwareStation, load_scenario
 from pydrake.all import (
     Context,
     LeafSystem,
     Meshcat,
+    MultibodyPlant,
     RigidTransform,
     RotationMatrix,
+    SceneGraph,
     State,
 )
 
-from ..rrt_2 import basic_rrt, rrt_test
-"""
-def rrt_planner_dummy():
-    Q, Q_split_arr = rrt_test()
-    return Q_split_arr
-"""
+from ..controller import q_nominal_arm
+from ..utils import configure_parser, set_spot_positions
+from .rrt import ConfigType, SpotProblem, rrt_planning
 
-def interpolate_positions(q_start, q_goal, num_steps: int = 10) -> list:
-    """A placeholder planner that simply interpolates between the current position and the target position."""
-    steps = np.linspace(0, 1, num_steps)
-    q_start = np.array(q_start)
-    q_goal = np.array(q_goal)
-    trajectory = (q_goal - q_start) * steps[:, None] + q_start
-    return trajectory
-
-def check_collision_move_spot(q0, q1):
-    #q0 and q1 are lists of spot xytheta
-    rrt_output = [(q0[0],q0[1], q0[2]), (q1[0],q1[1],q1[2])]
-    #rrt_output = [
-    #        (1.0, 1.50392176e-12, 3.15001955),
-    #        (0.20894849, -0.47792893, 0.2475),
-    #    ]
-    return rrt_output
-
-
-
-def dummmy_planner(*args, **kwargs):
-    rrt_output = [(1.0, 1.50392176e-12, 3.15001955),
- (0.23645827164605038, -0.9320212661757344, 3.6659477656755053),
- (-0.5299373180295666, -1.0774469060278349, 3.2763123513501946),
- (-2.0, -2.0, 3.15001955)]
-    trajectory = []
-    # interpolate between RRT keypoints to get a smoother trajectory
-    for q_start, q_goal in zip(rrt_output[:-1], rrt_output[1:]):
-        # the interpolation output contains the end points, so here we remove
-        # the last point to avoid duplicates
-        trajectory.extend(interpolate_positions(q_start, q_goal)[:-1])
-    trajectory.append(rrt_output[-1])
-    return trajectory
+default_scenario = "package://sponana/scenes/three_rooms_with_tables.dmd.yaml"
 
 
 class Navigator(LeafSystem):
@@ -59,7 +28,12 @@ class Navigator(LeafSystem):
     If a meshcat instance is provided, we can also visualize the trajectory.
     """
 
-    def __init__(self, time_step: float = 1.0, meshcat: Optional[Meshcat] = None):
+    def __init__(
+        self,
+        time_step: float = 0.1,
+        meshcat: Optional[Meshcat] = None,
+        scenario_file: str = default_scenario,
+    ):
         super().__init__()
         self._meshcat = meshcat
 
@@ -78,6 +52,9 @@ class Navigator(LeafSystem):
         self.DeclareVectorInputPort("spot_state", 20)
         self.DeclareVectorInputPort("target_position", 3)
 
+        # Initialize internal simulation model
+        self._init_internal_model(scenario_file)
+
         # kick off the planner
         self.DeclareInitializationDiscreteUpdateEvent(self._plan_trajectory)
 
@@ -86,42 +63,18 @@ class Navigator(LeafSystem):
 
     def get_target_position_input_port(self):
         return self.get_input_port(1)
-   
-    def _execute_trajectory(self, context: Context, state: State):
-        #for executing the trajectory calculated after RRT
-        current_position = self.get_spot_state_input_port().Eval(context)[:3]
-        # FIXME: hard code the goal for now
-        # target_position = self.get_target_position_input_port().Eval(context)
-        # target_position = [2.4, 1.15, 1.65]
 
-        # Invoke the planner to get a sequence of positions
-        # TODO: replace this with a real planner
-        # trajectory = dummmy_planner(current_position, target_position)
-        trajectory = dummmy_planner()
-        if self._meshcat:
-            for t, pose in enumerate(trajectory):
-                # convert position to pose for plotting
-                pose = RigidTransform(
-                    RotationMatrix.MakeZRotation(pose[2]), [*pose[:2], 0.0]
-                )
-                opacity = 0.2 if t > 0 and t < len(trajectory) - 1 else 1.0
-                AddMeshcatTriad(
-                    self._meshcat, f"trajectory_{t}", X_PT=pose, opacity=opacity
-                )
-
-        self._trajectory = trajectory
-        # initial state
-        state.set_value(self._base_position, trajectory[0])
-        state.set_value(self._traj_idx, [0])
-        
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
         current_position = self.get_spot_state_input_port().Eval(context)[:3]
         # FIXME: hard code the goal for now
         # target_position = self.get_target_position_input_port().Eval(context)
-        # target_position = [2.4, 1.15, 1.65]
+        target_position = np.array([-2, -2, 3.15001955e00])
+        spot_problem = SpotProblem(
+            current_position, target_position, self._collision_check
+        )
+        trajectory = rrt_planning(spot_problem, max_iterations=1000)
 
-        trajectory = dummmy_planner() #check_collision_move_spot()
         if self._meshcat:
             for t, pose in enumerate(trajectory):
                 # convert position to pose for plotting
@@ -144,3 +97,54 @@ class Navigator(LeafSystem):
 
         state.set_value(self._base_position, self._trajectory[idx])
         state.set_value(self._traj_idx, [idx])
+
+    def _collision_check(self, configuration: ConfigType) -> bool:
+        # move Spot to the proposed position
+        spot_state = np.concatenate([configuration, q_nominal_arm])
+        set_spot_positions(
+            spot_state, self._station, self._station_context, visualize=False
+        )
+        # check for collision pairs
+        return _spot_in_collision(self._plant, self._scene_graph, self._station_context)
+
+    def _init_internal_model(self, scenario_file: str):
+        """Initialize the planner's own internal model of the environment and use it for collision checking."""
+        scenario_data = f"""
+directives:
+- add_directives:
+    file: {scenario_file}
+
+- add_model:
+    name: spot
+    file: package://manipulation/spot/spot_with_arm_and_floating_base_actuators.urdf
+
+model_drivers:
+    spot: !InverseDynamicsDriver {{}}
+        """
+        scenario = load_scenario(data=scenario_data)
+        # Disable creation of new Meshcat instance
+        scenario.visualization.enable_meshcat_creation = False
+        self._station = MakeHardwareStation(
+            scenario, parser_preload_callback=configure_parser
+        )
+        self._plant = self._station.GetSubsystemByName("plant")
+        self._scene_graph = self._station.GetSubsystemByName("scene_graph")
+
+        self._station_context = self._station.CreateDefaultContext()
+
+
+def _spot_in_collision(
+    plant: MultibodyPlant, scene_graph: SceneGraph, context: Context
+) -> bool:
+    plant_context = plant.GetMyContextFromRoot(context)
+    sg_context = scene_graph.GetMyContextFromRoot(context)
+    query_object = plant.get_geometry_query_input_port().Eval(plant_context)
+    inspector = scene_graph.get_query_output_port().Eval(sg_context).inspector()
+    pairs = query_object.ComputePointPairPenetration()
+
+    for pair in pairs:
+        pair_name0 = inspector.GetName(pair.id_A)
+        pair_name1 = inspector.GetName(pair.id_B)
+        if pair_name0.startswith("spot") != pair_name1.startswith("spot"):
+            return True
+    return False
