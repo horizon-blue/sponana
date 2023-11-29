@@ -25,6 +25,9 @@ class PositionCombiner(LeafSystem):
         return self.get_input_port(1)
 
     def _combine_position(self, context: Context, output: BasicVector):
-        base_position = self.get_base_position_input_port().Eval(context)[:3]
-        arm_position = self.get_arm_position_input_port().Eval(context)[3:]
+        base_position = self.get_base_position_input_port().Eval(context)
+        arm_position = self.get_arm_position_input_port().Eval(context)
+        if self.use_teleop:
+            base_position = base_position[:3]
+            arm_position = arm_position[3:]
         output.SetFromVector([*base_position, *arm_position])
