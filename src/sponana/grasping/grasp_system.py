@@ -59,7 +59,7 @@ class Grasper(LeafSystem):
 
     def __init__(
         self,
-        time_step: float = 0.01,
+        time_step: float = 0.003,
         arm_name="arm_link_wr1",
         meshcat: Optional[Meshcat] = None
     ):
@@ -147,14 +147,22 @@ class Grasper(LeafSystem):
         best_gripper_pose = X_Gs[0] # @ RigidTransform([0., 0., 0.06])
 
         X_WGinitial = self.get_current_gripper_pose(context)
-        gripper_frames, self.times = MakeGripperFrames(X_WGinitial, best_gripper_pose, self._last_reset)
+        gripper_frames, self.times = MakeGripperFrames(X_WGinitial, best_gripper_pose, 0.)
+        print(gripper_frames)
+        print(self.times)
 
         self.traj_X_G = MakeGripperPoseTrajectories(gripper_frames, self.times)
 
-        for name, frame in gripper_frames.items():
-            AddMeshcatTriad(
-                self.meshcat, f"{name}_frame", X_PT=frame
-            )
+        # for name, frame in gripper_frames.items():
+        #     AddMeshcatTriad(
+        #         self.meshcat, f"{name}_frame", X_PT=frame
+        #     )
+
+        # for t in np.linspace(3, 7, 50):
+        #     X = self.traj_X_G.value(t)
+        #     AddMeshcatTriad(
+        #         self.meshcat, f"trajectory_{t}", X_PT=X
+        #     )
         # for i in range(50):
         #     X_WG = self.traj_X_G.value(i * 0.1)
         #     AddMeshcatTriad(
@@ -177,22 +185,28 @@ class Grasper(LeafSystem):
             return
 
         # Gripper pose to go to now
-        X_WGnow = RigidTransform(self.traj_X_G.value(context.get_time()))
+        T = context.get_time() - self._last_reset
+        X_WGnow = RigidTransform(self.traj_X_G.value(T))
 
         # Gripper is currently closing
-        if self.times["pick"] < context.get_time() and context.get_time() < self.times["postpick"]:
+        if self.times["pick"] < T < self.times["postpick"]:
             # assert np.allclose(X_WGnow, self.get_current_gripper_pose(context))
-            time_fraction = (context.get_time() - self.times["pick"]) / (self.times["postpick"] - self.times["pick"])
+            time_fraction = (T - self.times["pick"]) / (self.times["postpick"] - self.times["pick"])
             gripper_angle = -1.4 * (1 - time_fraction)
             self._gripper_angle = gripper_angle
-            print(f"T = {context.get_time()} | gripper_angle = {gripper_angle}")
-            return
+            # print(f"T = {context.get_time()} | gripper_angle = {gripper_angle}")
 
-        print(f"T = {context.get_time()} | X_WGnow = {self.traj_X_G.value(context.get_time())}")
+            print("X_WGnow = ", X_WGnow)
+            X_WGnow = RigidTransform(self.traj_X_G.value(self.times["pick"]))
+            print("X_WG at pick time = ", X_WGnow)
+
+        # print(f"T = {T} | X_WGnow = {self.traj_X_G.value(T)}")
         
         # Run IK
-        arm_position = _run_ik(X_WGnow, self.plant, self.plant_context, self.get_spot_state_input_port().Eval(context)[:10], self.arm_name)
-        print(f"arm_position = {arm_position}")
+        arm_position, ik_success = _run_ik(X_WGnow, self.plant, self.plant_context, self.get_spot_state_input_port().Eval(context)[:10], self.arm_name)
+        if not ik_success:
+            print(f"IK failed at T={T}")
+        # print(f"arm_position = {arm_position}")
         # Move the arm to the next position
         self._arm_position = arm_position
 
@@ -204,17 +218,16 @@ def _run_ik(X_WG, plant, plant_context, initial_q, arm_frame_name):
         plant_context,
         X_WA, fix_base=True,
         base_position=initial_q[:3],
-        position_bound=0.0001,
-        rotation_bound=0.0001,
+        position_bound=0.01,
+        rotation_bound=0.01,
         target_frame_name=arm_frame_name,
         error_on_fail=False,
         q_current=initial_q[3:10]
     )
     if soln is None:
-        print("IK failed.")
-        return initial_q[3:10]
+        return (initial_q[3:10], False)
     arm_position = soln[3:]
-    return arm_position
+    return (arm_position, True)
 
 #####
 
@@ -223,23 +236,29 @@ def MakeGripperFrames(X_WGinit, X_WGfinal, t0):
     Here, G is the gripper frame AS THOUGH IT'S THE WSG! (NOT THE LINK FRAME)
     """
     X_WG = {"initial": X_WGinit}
-    X_WG["prepick"] =  X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.3, 0.05])
-    X_WG["pick"] = X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.2, 0.05])
-    X_WG["postpick"] = X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.22, 0.05])
-    X_WG["postpick2"] = X_WGfinal @ RigidTransform([0., -0.3, 0.0])# RigidTransform([0., -0.3, 0.])
+    X_WG["post_init"] = X_WGinit @ RigidTransform([0.0, 0.1, 0.2])
+    # X_WG["prepick"] =  X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.3, 0.05])
+    # X_WG["pick"] = X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.2, 0.05])
+    # X_WG["postpick"] = X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.22, 0.05])
+    # X_WG["postpick2"] = X_WGfinal @ RigidTransform([0., -0.3, 0.0])# RigidTransform([0., -0.3, 0.])
+    X_WG["prepick"] =  X_WGfinal @ RigidTransform([0., -0.3, 0.0])
+    X_WG["pick"] = X_WGfinal @ RigidTransform([0., -0.22, 0.00])
+    X_WG["postpick"] = X_WGfinal @ RigidTransform([0., -0.22, 0.00])
+    X_WG["postpick2"] = X_WGfinal @ RigidTransform([0., -0.45, 0.0])# RigidTransform([0., -0.3, 0.])
 
     times = {"initial": t0}
-    times["prepick"] = times["initial"] + 3.0
-    times["pick"] = times["prepick"] + 2.0
-    times["postpick"] = times["pick"] + 3.0
-    times["postpick2"] = times["postpick"] + 2.0
+    times["post_init"] = times["initial"] + 1.0 # 1 sec to here
+    times["prepick"] = times["post_init"] + 2.0 # 2 secs to prepick
+    times["pick"] = times["prepick"] + 1.0 # 1 sec to pick spot
+    times["postpick"] = times["pick"] + 2.0 # 2 secs to close gripper
+    times["postpick2"] = times["postpick"] + 2.0 # 2 secs to next spot
     
     return X_WG, times
 
 def MakeGripperPoseTrajectories(X_WG, times):
     sample_times = []
     poses = []
-    for name in ["initial", "prepick", "pick", "postpick", "postpick2"]:
+    for name in ["initial", "post_init", "prepick", "pick", "postpick", "postpick2"]:
         sample_times.append(times[name])
         poses.append(X_WG[name])
     return PiecewisePose.MakeLinear(sample_times, poses)

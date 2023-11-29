@@ -20,6 +20,10 @@
             <size>10.0 8.1 0.05</size>
           </box>
         </geometry>
+        <drake:proximity_properties>
+          <drake:compliant_hydroelastic />
+          <drake:hydroelastic_modulus>1.0e8</drake:hydroelastic_modulus>
+        </drake:proximity_properties>
       </collision>
     </link>
     <frame name="platform_center">

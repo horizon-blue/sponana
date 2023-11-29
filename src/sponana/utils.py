@@ -6,6 +6,10 @@ import pydot
 from IPython.display import SVG, display
 from manipulation import ConfigureParser
 from pydrake.all import Context, Diagram, Meshcat, PackageMap, Parser, Simulator
+from manipulation.station import MakeHardwareStation
+from pathlib import Path
+
+sponana_dir = Path(__file__).parent.absolute()
 
 
 def configure_parser(parser: Parser):
@@ -29,6 +33,11 @@ def configure_parser(parser: Parser):
     models_path = Path(__file__).parent / "models"
     parser.package_map().Add("sponana", str(models_path.resolve()))
 
+def MakeSponanaHardwareStation(scenario, meshcat):
+    return MakeHardwareStation(
+        scenario, meshcat, parser_preload_callback=configure_parser,
+        package_xmls=[str(sponana_dir / "models/package.xml")]
+    )
 
 def visualize_diagram(diagram: Diagram, max_depth: Optional[int] = None):
     display(
