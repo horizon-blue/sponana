@@ -1,6 +1,7 @@
 from pydrake.all import (
     RigidTransform,
     RotationMatrix,
+    RollPitchYaw,
 )
 import numpy as np
 
@@ -59,6 +60,24 @@ camera_poses_W = [
     )
 ]
 table_pose = Xs_WT[0] # Table these camera poses are around
+
+# convert camera pose back to base joint positions
+X_BC = RigidTransform(
+    R=RotationMatrix(
+        [
+            [6.123233995736766e-17, -0.4999999999999999, 0.8660254037844387],
+            [-1.0, -3.061616997868382e-17, 5.3028761936245346e-17],
+            [0.0, -0.8660254037844387, -0.4999999999999999],
+        ]
+    ),
+    p=[0.44330127018922194, 2.6514380968122674e-18, 0.495],
+)
+X_CB = X_BC.inverse()
+base_poses_W = [X_WC @ X_CB for X_WC in camera_poses_W]
+base_q = [
+    np.array([*X_WB.translation()[:2], RollPitchYaw(X_WB.rotation()).vector()[-1]])
+    for X_WB in base_poses_W
+]
 
 def get_camera_poses_table_frame():
     X_WT = table_pose
