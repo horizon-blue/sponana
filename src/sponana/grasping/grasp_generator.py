@@ -344,5 +344,3 @@ def GenerateAntipodalGraspCandidate(
         # draw_grasp_candidate(X_G, f"collision/{theta:.1f}")
 
     return np.inf, None
-
-# min z = 0.16

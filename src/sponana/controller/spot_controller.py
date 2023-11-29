@@ -41,20 +41,21 @@ def make_spot_controller(
     )
 
     # Control arm with IK
-    spot_arm_ik_controller = builder.AddNamedSystem(
-        "spot_arm_ik",
-        SpotArmIKController(spot_plant, enabled=enable_arm_ik, use_teleop=use_teleop),
-    )
+    # spot_arm_ik_controller = builder.AddNamedSystem(
+    #     "spot_arm_ik",
+    #     SpotArmIKController(spot_plant, enabled=enable_arm_ik, use_teleop=use_teleop),
+    # )
 
     # Combine Spot's arm and base positions
     position_combiner = builder.AddNamedSystem(
         "position_combiner", PositionCombiner(use_teleop)
     )
-    if enable_arm_ik:
-        builder.Connect(
-            spot_arm_ik_controller.get_output_port(),
-            position_combiner.get_arm_position_input_port(),
-        )
+    # if enable_arm_ik:
+    #     builder.Connect(
+    #         spot_arm_ik_controller.get_output_port(),
+    #         position_combiner.get_arm_position_input_port(),
+    #     )
+
     builder.Connect(
         position_combiner.get_output_port(), position_to_state.get_input_port()
     )
@@ -75,10 +76,10 @@ def make_spot_controller(
         builder.Connect(
             teleop.get_output_port(), position_combiner.get_base_position_input_port()
         )
-        builder.Connect(
-            teleop.get_output_port(),
-            spot_arm_ik_controller.get_base_position_input_port(),
-        )
+        # builder.Connect(
+        #     teleop.get_output_port(),
+        #     spot_arm_ik_controller.get_base_position_input_port(),
+        # )
 
         if not enable_arm_ik:
             builder.Connect(
@@ -90,13 +91,13 @@ def make_spot_controller(
         builder.ExportInput(
             position_combiner.get_base_position_input_port(), "desired_base_position"
         )
-        builder.ConnectInput(
-            "desired_base_position",
-            spot_arm_ik_controller.get_base_position_input_port(),
+        # builder.ConnectInput(
+        #     "desired_base_position",
+        #     spot_arm_ik_controller.get_base_position_input_port(),
+        # )
+        builder.ExportInput(
+            position_combiner.get_arm_position_input_port(), "desired_arm_position"
         )
-    builder.ExportInput(
-        spot_arm_ik_controller.get_desired_pose_input_port(), "desired_gripper_pose"
-    )
     builder.ExportOutput(position_to_state.get_output_port(), "desired_state")
 
     # Finalize the diagram

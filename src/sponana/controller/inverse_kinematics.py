@@ -30,6 +30,8 @@ def solve_ik(
     rotation_bound: float = 0.01,
     position_bound: float = 0.01,
     collision_bound: float = 0.001,
+    error_on_fail: bool = True,
+    q_current=q_nominal_arm,
 ):
     """Convert the desired pose for Spot to joint angles, subject to constraints.
 
@@ -46,7 +48,7 @@ def solve_ik(
         collision_bound (float, optional): The minimum allowed distance between Spot and the other
         objects in the scene.
     """
-    for _ in range(200):
+    for _ in range(10):
         ik = InverseKinematics(plant, context)
         q = ik.q()  # Get variables for MathematicalProgram
         prog = ik.prog()  # Get MathematicalProgram
@@ -57,7 +59,7 @@ def solve_ik(
         # nominal pose
         q0 = np.zeros(len(q))
         q0[:3] = base_position 
-        q0[3:10] = q_nominal_arm
+        q0[3:10] = q_current # q_nominal_arm
 
         # Target position and rotation
         p_WT = X_WT.translation()
@@ -89,9 +91,11 @@ def solve_ik(
 
         # Let's get started
         prog.AddQuadraticErrorCost(np.identity(len(q)), q0, q)
-        prog.SetInitialGuess(q, np.random.rand(len(q)))
+        prog.SetInitialGuess(q, q0) # + np.random.rand(len(q)) * 0.01) #np.random.rand(len(q)))
 
         result = Solve(ik.prog())
         if result.is_success():
             return result.GetSolution(q)
-    raise AssertionError("IK failed :(")
+    if error_on_fail:
+        raise AssertionError("IK failed :(")
+    return None
