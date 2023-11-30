@@ -42,7 +42,8 @@ from sponana.perception import (
     add_camera_pose_extractor,
 )
 from sponana.planner import Navigator
-
+from sponana.fsm import finite_state_machine
+add_finite_state_machine = False
 
 @dataclass
 class TableSceneSpec:
@@ -293,6 +294,10 @@ model_drivers:
                 banana_pose_extractor.get_output_port(),
                 debugger.get_banana_pose_input_port(),
             )
+        ###Not Done will add
+        if add_finite_state_machine:
+            fsm = builder.AddNamedSystem("fsm", finite_state_machine(meshcat=meshcat))
+            builder.Connect(station.GetOutputPort())
 
     diagram = builder.Build()
 
