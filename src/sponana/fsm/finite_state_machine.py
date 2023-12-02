@@ -17,7 +17,7 @@ class FiniteStateMachine(LeafSystem):
     and go to each of these cameras in order (using the Navigator leaf system)
     , until banana is found.
     """
-    def __init__(self, meshcat: Meshcat, num_tables: int = 0):
+    def __init__(self):
         super().__init__()
         self._camera_pose_ind = self.DeclareDiscreteState(1)
         self._completed = self.DeclareDiscreteState(1)

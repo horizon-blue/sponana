@@ -44,24 +44,37 @@ from sponana.perception import (
 from sponana.planner import Navigator
 from sponana.fsm import finite_state_machine
 
-### Added directly into sim.py, not finished
+###Added in sim.py for FSM
+##This is just notes file for reference on double monitors
 
 
-
-"""add_finite_state_machine = True
-
-if add_finite_state_machine:
-    fsm_plant = builder.AddNamedSystem()
-
-   if not use_teleop:
-            # planner
-            planner = builder.AddNamedSystem("navigator", Navigator(meshcat=meshcat))
+banana_spotter = builder.AddNamedSystem(
+            "banana_spotter",
+            BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
+        )
+        builder.Connect(
+            station.GetOutputPort("spot_camera.rgb_image"),
+            banana_spotter.get_color_image_input_port(),
+        )
+        builder.Connect(
+            station.GetOutputPort("spot_camera.depth_image"),
+            banana_spotter.get_depth_image_input_port(),
+        )
+        builder.Connect(
+            camera_pose_extractor.get_output_port(),
+            banana_spotter.get_camera_pose_input_port(),
+        )
+        for i, pose_extractor in enumerate(table_pose_extractors):
             builder.Connect(
-                station.GetOutputPort("spot.state_estimated"),
-                planner.get_spot_state_input_port(),
+                pose_extractor.get_output_port(),
+                banana_spotter.get_table_pose_input_port(i),
             )
-            builder.Connect(
-                planner.get_output_port(),
-                spot_controller.GetInputPort("desired_base_position"),
-            )
-"""
+
+        # Banana pose (using cheat port -- placeholder for now)
+        banana_pose_extractor = add_body_pose_extractor(
+            "banana", "banana", station, builder
+        )
+        builder.Connect(
+            banana_pose_extractor.get_output_port(),
+            spot_controller.GetInputPort("desired_gripper_pose"),
+        )
