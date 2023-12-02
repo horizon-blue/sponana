@@ -36,15 +36,29 @@ from manipulation.scenarios import AddFloatingRpyJoint, AddRgbdSensors, ycb
 from manipulation.utils import ConfigureParser
 from sponana.controller.inverse_kinematics import solve_ik
 import sponana.utils
+import sponana.grasping.grasping_models as grasping_models
 from sponana.grasping.grasp_generator import get_unified_point_cloud, BananaSystem, ScoreSystem, GenerateAntipodalGraspCandidate
 
+# Transform from the gripper frame (as in the WSG) to the arm frame
+# (the frame of the arm link in the Spot URDF)
 X_GA = RigidTransform(
-        RollPitchYaw([0, 0, 1.57]), np.array([0.0, 0.08, 0.00])
+        RollPitchYaw([1.57, 0, 1.57]), np.array([0.0, -0.08, 0.00])
     )
 
 class Grasper(LeafSystem):
     """
     This system implements banana grasping.
+
+    Constructor args:
+    - target_obj_path: The path to the SDF or URDF file for the target object.
+    - target_obj_link: The base link name of the target object.
+    - target_obj_rpy_str: A string describing an orientation of the target object
+        in which a valid grasp can be found.  (Should be in contact with the floor/table
+        on the same face as the target object in the environment.)  Of the form [R P Y]
+        where R P and Y are numbers in degrees for roll pitch yaw.
+    - time_step: The time step at which to update the system.
+    - arm_name: The name of the arm link in the Spot URDF.
+    - meshcat: The meshcat instance to use for visualization.
 
     Input ports:
     - spot_state: The current state of the Spot robot.
@@ -59,24 +73,24 @@ class Grasper(LeafSystem):
 
     def __init__(
         self,
+        target_obj_path="package://sponana/banana/banana.sdf",
+        target_obj_link="banana",
+        target_obj_rpy_str="[0, 0, 0]",
         time_step: float = 0.003,
         arm_name="arm_link_wr1",
         meshcat: Optional[Meshcat] = None
     ):
         super().__init__()
 
+        self.target_obj_path = target_obj_path
+        self.target_obj_link = target_obj_link
+        self.target_obj_rpy_str = target_obj_rpy_str
+        self.arm_name = arm_name
+        self.meshcat = meshcat
+
         self.DeclarePeriodicDiscreteUpdateEvent(
             period_sec=time_step, offset_sec=0.0, update=self._update
         )
-
-        # At first I thought we needed to track the state, but
-        # now I think we can just use the time.
-        # # Will be
-        # # 0 if pre-grasp,
-        # # 1 if grasping,
-        # # 2 if post-grasp,
-        # # 3 if done.
-        # self._current_state = self.DeclareDiscreteState(1)
 
         # Reset things once this time is passed.
         self.DeclareVectorInputPort("reset_time", 1)
@@ -92,14 +106,14 @@ class Grasper(LeafSystem):
 
         self.DeclareInitializationDiscreteUpdateEvent(self._initialize)
 
-        self.arm_name = arm_name
-        self.meshcat = meshcat
-
         # MultibodyPlant in the robot's head, used for IK and FK
         self.plant = None
         self.plant_context = None
 
     def OutputArmPosition(self, context: Context, output):
+        if self._arm_position is None: # Haven't started yet
+            return self.get_spot_state_input_port().Eval(context)[3:10]
+        
         arm_pos = self._arm_position.copy()
         arm_pos[-1] = self._gripper_angle
         output.SetFromVector(arm_pos)
@@ -115,6 +129,8 @@ class Grasper(LeafSystem):
     
     def get_current_arm_pose(self, context: Context):
         current_q = self.get_spot_state_input_port().Eval(context)[:10]
+        print(self.plant.GetPositions(self.plant_context))
+        print(current_q)
         self.plant.SetPositions(self.plant_context, current_q)
         arm_body_idx = self.plant.GetBodyByName(self.arm_name).index()
         X_WA = self.plant.get_body_poses_output_port().Eval(self.plant_context)[arm_body_idx]
@@ -138,14 +154,25 @@ class Grasper(LeafSystem):
         banana_pose = self.get_banana_pose_input_port().Eval(context)
 
         print("sampling grasps...")
-        X_Gs, self.plant, mental_sim_context = sample_grasps(
+        X_Gs = sample_grasps(
+            self.target_obj_path,
+            self.target_obj_link,
+            self.target_obj_rpy_str,
             pointcloud_transform=banana_pose,
-            meshcat_for_final_grasp=self.meshcat
+            meshcat_for_final_grasp=self.meshcat,
+            meshcat=self.meshcat
         )
-        # input("Press enter to continue...")
+
+        # Set up mental model for IK
+        self.plant, mental_sim_context = get_mental_plant(
+            self.target_obj_path,
+            self.target_obj_link,
+            meshcat=None # If we give the mental model the meshcat it will take over the viz
+        )
         self.plant_context = self.plant.GetMyContextFromRoot(mental_sim_context)
         best_gripper_pose = X_Gs[0] # @ RigidTransform([0., 0., 0.06])
 
+        # Plan a gripper trajectory
         X_WGinitial = self.get_current_gripper_pose(context)
         gripper_frames, self.times = MakeGripperFrames(X_WGinitial, best_gripper_pose, 0.)
         print(gripper_frames)
@@ -153,23 +180,7 @@ class Grasper(LeafSystem):
 
         self.traj_X_G = MakeGripperPoseTrajectories(gripper_frames, self.times)
 
-        # for name, frame in gripper_frames.items():
-        #     AddMeshcatTriad(
-        #         self.meshcat, f"{name}_frame", X_PT=frame
-        #     )
-
-        # for t in np.linspace(3, 7, 50):
-        #     X = self.traj_X_G.value(t)
-        #     AddMeshcatTriad(
-        #         self.meshcat, f"trajectory_{t}", X_PT=X
-        #     )
-        # for i in range(50):
-        #     X_WG = self.traj_X_G.value(i * 0.1)
-        #     AddMeshcatTriad(
-        #         self.meshcat, f"trajectory_{i * 0.1}", X_PT=X_WG
-        #     )
-
-        ### Set the output port for the first time ###
+        # Set the output port for the first time
         self._update(context, state)
         
     def _update(self, context: Context, state: State):
@@ -194,13 +205,10 @@ class Grasper(LeafSystem):
             time_fraction = (T - self.times["pick"]) / (self.times["postpick"] - self.times["pick"])
             gripper_angle = -1.4 * (1 - time_fraction)
             self._gripper_angle = gripper_angle
-            # print(f"T = {context.get_time()} | gripper_angle = {gripper_angle}")
 
             print("X_WGnow = ", X_WGnow)
             X_WGnow = RigidTransform(self.traj_X_G.value(self.times["pick"]))
             print("X_WG at pick time = ", X_WGnow)
-
-        # print(f"T = {T} | X_WGnow = {self.traj_X_G.value(T)}")
         
         # Run IK
         arm_position, ik_success = _run_ik(X_WGnow, self.plant, self.plant_context, self.get_spot_state_input_port().Eval(context)[:10], self.arm_name)
@@ -242,8 +250,8 @@ def MakeGripperFrames(X_WGinit, X_WGfinal, t0):
     # X_WG["postpick"] = X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.22, 0.05])
     # X_WG["postpick2"] = X_WGfinal @ RigidTransform([0., -0.3, 0.0])# RigidTransform([0., -0.3, 0.])
     X_WG["prepick"] =  X_WGfinal @ RigidTransform([0., -0.3, 0.0])
-    X_WG["pick"] = X_WGfinal @ RigidTransform([0., -0.22, 0.00])
-    X_WG["postpick"] = X_WGfinal @ RigidTransform([0., -0.22, 0.00])
+    X_WG["pick"] = X_WGfinal @ RigidTransform([0., -0.035, 0.]) # @ RigidTransform([0., -0.22, 0.00])
+    X_WG["postpick"] = X_WGfinal @ RigidTransform([0., -0.035, 0.]) # @ RigidTransform([0., -0.22, 0.00])
     X_WG["postpick2"] = X_WGfinal @ RigidTransform([0., -0.45, 0.0])# RigidTransform([0., -0.3, 0.])
 
     times = {"initial": t0}
@@ -265,15 +273,25 @@ def MakeGripperPoseTrajectories(X_WG, times):
 
 ######
 
-def make_internal_model():
+def make_internal_gripper_model(target_obj_path, target_obj_link, target_obj_rpy_str, meshcat=None):
     builder = DiagramBuilder()
     plant, scene_graph = AddMultibodyPlantSceneGraph(builder, time_step=0.001)
     parser = Parser(plant)
     sponana.utils.configure_parser(parser)
-    parser.AddModelsFromUrl("package://sponana/grasping/banana_and_spot_gripper.dmd.yaml")
+    parser.AddModelsFromString(grasping_models.gripper_and_target_str(target_obj_path=target_obj_path, target_obj_link=target_obj_link, target_obj_rpy_str=target_obj_rpy_str), "dmd.yaml")
+    # parser.AddModelsFromUrl("package://sponana/grasping/banana_and_spot_gripper.dmd.yaml")
     plant.Finalize()
+
+    if meshcat is not None:
+        params = MeshcatVisualizerParams()
+        params.prefix = "planning"
+        visualizer = MeshcatVisualizer.AddToBuilder(
+            builder, scene_graph, meshcat, params
+        )
+
     return builder.Build()
 
+from manipulation.scenarios import AddMultibodyTriad
 # For visualization
 def draw_grasp_candidate(X_G, meshcat, gripper_name, prefix="gripper", draw_frames=True):
     builder = DiagramBuilder()
@@ -293,21 +311,23 @@ def draw_grasp_candidate(X_G, meshcat, gripper_name, prefix="gripper", draw_fram
     visualizer = MeshcatVisualizer.AddToBuilder(
         builder, scene_graph, meshcat, params
     )
+    AddMultibodyTriad(plant.GetFrameByName(gripper_name), scene_graph)
+
     diagram = builder.Build()
     context = diagram.CreateDefaultContext()
     diagram.ForcedPublish(context)
 
-def sample_grasps(gripper_name="gripper", pointcloud_transform=RigidTransform(), meshcat=None, meshcat_for_final_grasp=None):
+def get_mental_plant(target_obj_path, target_obj_link, meshcat=None):
     if meshcat is not None:
         meshcat.Delete()
-    rng = np.random.default_rng()
 
     builder = DiagramBuilder()
     plant, scene_graph = AddMultibodyPlantSceneGraph(builder, time_step=0.001)
     parser = Parser(plant)
     sponana.utils.configure_parser(parser)
     
-    parser.AddModelsFromUrl("package://sponana/grasping/banana_and_spot.dmd.yaml")
+    parser.AddModelsFromString(grasping_models.spot_and_target_str(target_obj_path=target_obj_path, target_obj_link=target_obj_link), "dmd.yaml")
+    # parser.AddModelsFromUrl("package://sponana/grasping/banana_and_spot.dmd.yaml")
 
     plant.Finalize()
 
@@ -324,13 +344,21 @@ def sample_grasps(gripper_name="gripper", pointcloud_transform=RigidTransform(),
     # Hide the planning gripper
     if meshcat is not None:
         meshcat.SetProperty("planning/gripper", "visible", False)
+    plant.GetMyContextFromRoot(context)
+    scene_graph.GetMyContextFromRoot(context)
 
-    environment = BananaSystem()
+    return plant, context
+
+def sample_grasps(target_obj_path, target_obj_link, target_obj_rpy_str, gripper_name="gripper", pointcloud_transform=RigidTransform(), meshcat=None, meshcat_for_final_grasp=None):
+    meshcat = None
+    rng = np.random.default_rng()
+
+    environment = BananaSystem(grasping_models.target_and_cameras_str(target_obj_path=target_obj_path, target_obj_link=target_obj_link, target_obj_rpy_str=target_obj_rpy_str))
     environment_context = environment.CreateDefaultContext()
     cloud = get_unified_point_cloud(
         environment,
         environment_context,
-        meshcat=None
+        meshcat=meshcat
     )
     print(f"pointcloud transform: {pointcloud_transform}")
     cloud.mutable_xyzs()[:] = pointcloud_transform.multiply(cloud.xyzs())
@@ -338,10 +366,7 @@ def sample_grasps(gripper_name="gripper", pointcloud_transform=RigidTransform(),
     if meshcat is not None:
         meshcat.SetObject("planning/cloud", cloud, point_size=0.003)
 
-    plant.GetMyContextFromRoot(context)
-    scene_graph.GetMyContextFromRoot(context)
-
-    internal_model = make_internal_model()
+    internal_model = make_internal_gripper_model(target_obj_path, target_obj_link, target_obj_rpy_str, meshcat=meshcat)
     internal_model_context = internal_model.CreateDefaultContext()
     costs = []
     X_Gs = []
@@ -363,4 +388,4 @@ def sample_grasps(gripper_name="gripper", pointcloud_transform=RigidTransform(),
 
     print(max(costs))
 
-    return np.array(X_Gs)[indices], plant, context
+    return np.array(X_Gs)[indices]
