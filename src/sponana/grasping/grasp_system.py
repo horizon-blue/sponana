@@ -59,12 +59,14 @@ class Grasper(LeafSystem):
     - time_step: The time step at which to update the system.
     - arm_name: The name of the arm link in the Spot URDF.
     - meshcat: The meshcat instance to use for visualization.
+    - verbose: Whether to print debugging info.
 
     Input ports:
     - spot_state: The current state of the Spot robot.
     - banana_pose: The current pose of the banana.
     - reset_time: The next time at which to reset the system (and read
-        in a new banana pose.)
+        in a new banana pose.)  (Ie. the time at which to begin
+        to control the arm to grasp the banana.)
 
     Output ports:
     - arm_position: The next arm position to go to. (Subsequent
@@ -78,7 +80,8 @@ class Grasper(LeafSystem):
         target_obj_rpy_str="[0, 0, 0]",
         time_step: float = 0.003,
         arm_name="arm_link_wr1",
-        meshcat: Optional[Meshcat] = None
+        meshcat: Optional[Meshcat] = None,
+        verbose=False
     ):
         super().__init__()
 
@@ -87,6 +90,7 @@ class Grasper(LeafSystem):
         self.target_obj_rpy_str = target_obj_rpy_str
         self.arm_name = arm_name
         self.meshcat = meshcat
+        self.verbose = verbose
 
         self.DeclarePeriodicDiscreteUpdateEvent(
             period_sec=time_step, offset_sec=0.0, update=self._update
@@ -129,8 +133,6 @@ class Grasper(LeafSystem):
     
     def get_current_arm_pose(self, context: Context):
         current_q = self.get_spot_state_input_port().Eval(context)[:10]
-        print(self.plant.GetPositions(self.plant_context))
-        print(current_q)
         self.plant.SetPositions(self.plant_context, current_q)
         arm_body_idx = self.plant.GetBodyByName(self.arm_name).index()
         X_WA = self.plant.get_body_poses_output_port().Eval(self.plant_context)[arm_body_idx]
@@ -148,12 +150,14 @@ class Grasper(LeafSystem):
             self._gripper_angle = self._arm_position[-1]
             return
 
+        if self.verbose:
+            print("Initializing.")
+
         # Open gripper.
         self._gripper_angle = -1.4  # Last value of _arm_position is overwritten with this
 
         banana_pose = self.get_banana_pose_input_port().Eval(context)
 
-        print("sampling grasps...")
         X_Gs = sample_grasps(
             self.target_obj_path,
             self.target_obj_link,
@@ -175,8 +179,9 @@ class Grasper(LeafSystem):
         # Plan a gripper trajectory
         X_WGinitial = self.get_current_gripper_pose(context)
         gripper_frames, self.times = MakeGripperFrames(X_WGinitial, best_gripper_pose, 0.)
-        print(gripper_frames)
-        print(self.times)
+        if self.verbose:
+            print(gripper_frames)
+            print(self.times)
 
         self.traj_X_G = MakeGripperPoseTrajectories(gripper_frames, self.times)
 
@@ -187,7 +192,8 @@ class Grasper(LeafSystem):
         newest_reset_time = self.get_reset_time_input_port().Eval(context)[0]
         reset_already_done = newest_reset_time <= self._last_reset
         if (not reset_already_done) and newest_reset_time < context.get_time():
-            print("Re-initializing")
+            if self.verbose:
+                print("Re-initializing.")
             self._last_reset = newest_reset_time
             self._initialize(context, state)
             return
@@ -206,13 +212,13 @@ class Grasper(LeafSystem):
             gripper_angle = -1.4 * (1 - time_fraction)
             self._gripper_angle = gripper_angle
 
-            print("X_WGnow = ", X_WGnow)
+            # print("X_WGnow = ", X_WGnow)
             X_WGnow = RigidTransform(self.traj_X_G.value(self.times["pick"]))
-            print("X_WG at pick time = ", X_WGnow)
+            # print("X_WG at pick time = ", X_WGnow)
         
         # Run IK
         arm_position, ik_success = _run_ik(X_WGnow, self.plant, self.plant_context, self.get_spot_state_input_port().Eval(context)[:10], self.arm_name)
-        if not ik_success:
+        if not ik_success and self.verbose:
             print(f"IK failed at T={T}")
         # print(f"arm_position = {arm_position}")
         # Move the arm to the next position
@@ -360,7 +366,6 @@ def sample_grasps(target_obj_path, target_obj_link, target_obj_rpy_str, gripper_
         environment_context,
         meshcat=meshcat
     )
-    print(f"pointcloud transform: {pointcloud_transform}")
     cloud.mutable_xyzs()[:] = pointcloud_transform.multiply(cloud.xyzs())
 
     if meshcat is not None:
@@ -385,7 +390,5 @@ def sample_grasps(target_obj_path, target_obj_link, target_obj_rpy_str, gripper_
     #         draw_grasp_candidate(
     #             X_Gs[index], meshcat_for_final_grasp, gripper_name, prefix=f"{rank}th best", draw_frames=False
     #         )
-
-    print(max(costs))
 
     return np.array(X_Gs)[indices]
