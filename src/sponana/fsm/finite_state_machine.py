@@ -29,8 +29,8 @@ class FiniteStateMachine(LeafSystem):
         self._do_rrt = self.DeclareDiscreteState(1)
         ### Input ports
         #list of camera poses for Spot to travel to in order
-        self.DeclareAbstractInputPort("camera_poses", [AbstractValue.Make(RigidTransform())]*9)
-        #self.DeclareAbstractInputPort("camera_poses", [self.DeclareDiscreteState(3)]*9)
+        #self.DeclareAbstractInputPort("camera_poses", [AbstractValue.Make(RigidTransform())]*9)
+        self.DeclareAbstractInputPort("camera_poses", [self.DeclareDiscreteState(3)]*9)
         #spot "start state for RRT for navigator leaf system". 
         #don't know if need because navigator already gets this from the station
         self.DeclareVectorInputPort("spot_init_state", 20)

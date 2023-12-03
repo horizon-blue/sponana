@@ -265,7 +265,7 @@ model_drivers:
             banana_spotter = station.GetSubsystemByName("banana_spotter")
             grasper = station.GetSubsystemByName("grasper")
             fsm = builder.AddNamedSystem("finite_state_machine", finite_state_machine())
-            #get camera poses from somwhere
+            #get camera base poses from somewhere
             builder.Connect(station.GetOutputPort("cameras.state_estimated"),
                             fsm.get_camera_poses_input_port())
             #not necessarily needed
@@ -288,6 +288,7 @@ model_drivers:
 
             #output ports
 
+            #single cam pose in discretevalue(3) just the desired base pose
             builder.Connect(
                 fsm.GetOutputPort("single_cam_pose"), 
                 navigator.GetInputPort("target_position")
@@ -301,8 +302,8 @@ model_drivers:
                 grasper.GetInputPort("grasp_banana")
             )
             builder.Connect(
-                fsm.GetOutputPort("camera_reached"), 
-                fsm.GetInputPort("camera_reached")
+                fsm.GetOutputPort("do_rrt"), 
+                navigator.GetInputPort("do_rrt")
             )
 
 
