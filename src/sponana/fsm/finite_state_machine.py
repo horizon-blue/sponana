@@ -26,6 +26,7 @@ class FiniteStateMachine(LeafSystem):
         self._check_banana = self.DeclareDiscreteState(1)
         self._has_banana = self.DeclareDiscreteState(1)
         self._grasp_banana = self.DeclareDiscreteState(1)
+        self._do_rrt = self.DeclareDiscreteState(1)
         ### Input ports
         #list of camera poses for Spot to travel to in order
         self.DeclareAbstractInputPort("camera_poses", [AbstractValue.Make(RigidTransform())]*9)
@@ -50,7 +51,7 @@ class FiniteStateMachine(LeafSystem):
         self.DeclareVectorOutputPort("grasp_banana", self._grasp_banana)
 
         
-        self.DeclareVectorInputPort("camera_reached",self._camera_reached)
+        self.DeclareVectorInputPort("do_rrt",self._do_rrt)
 
         self.DeclareInitializationDiscreteUpdateEvent(self._execute_finite_state_machine)
     
@@ -69,7 +70,7 @@ class FiniteStateMachine(LeafSystem):
     def get_has_banana_input_port(self):
         return self.get_input_port(4)    
     
-    def _update_camera_reached(self, context: Context):
+    def _update_do_rrt(self, context: Context):
         """
         Function to update flag to indicate to RRT/Navigator for ready for planning/movement.
         Inputs: 
@@ -81,10 +82,16 @@ class FiniteStateMachine(LeafSystem):
         if current cam is not reached, stay 1 so that navigator will wait. 
         """
         current_cam_reached = self.get_camera_reached_input_port().Eval(context)
-        new_cam_reached = 1
-        if current_cam_reached == 1: 
-            new_cam_reached = 0
-        return new_cam_reached
+        current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
+        check_banana = int(context.get_discrete_state(self._check_banana).get_value())
+        do_rrt = 0
+        #just starting, have not reached the first camera pose, do_rrt to get to the first camera
+        if current_cam_reached == 0 and current_cam_ind == 1:
+            do_rrt = 1
+        elif current_cam_reached == 1 and check_banana == 1: 
+            do_rrt = 1
+        
+        return do_rrt
 
     def _update_camera_ind(self, context: Context, state: State):
         """Function for updating camera pose list index. 
@@ -174,14 +181,16 @@ class FiniteStateMachine(LeafSystem):
         return completed
 
     def _execute_finite_state_machine(self, context: Context, state: State):
-        new_cam_reached = self._update_camera_reached(context)
-        state.set_value(self._camera_reached, new_cam_reached)
-        self._update_camera_ind(context, state)
-        next_camera_pose = self._get_camera_pose(context)
-        state.set_value(self._next_camera_pose, next_camera_pose)
-        check_banana = self._update_check_banana(context)
-        state.set_value(self._check_banana, check_banana)
-        grasp_banana = self._update_grasp_banana(context)
-        state.set_value(self._grasp_banana, grasp_banana)
-        completed = self._update_completion(context)
-        state.set_value(self._completed, completed)
+        complete_flag = int(context.get_discrete_state(self._completed).get_value())
+        while complete_flag == 0:
+            check_do_rrt = self._update_do_rrt(context)
+            state.set_value(self._do_rrt, check_do_rrt)
+            self._update_camera_ind(context, state)
+            next_camera_pose = self._get_camera_pose(context)
+            state.set_value(self._next_camera_pose, next_camera_pose)
+            check_banana = self._update_check_banana(context)
+            state.set_value(self._check_banana, check_banana)
+            grasp_banana = self._update_grasp_banana(context)
+            state.set_value(self._grasp_banana, grasp_banana)
+            completed = self._update_completion(context)
+            state.set_value(self._completed, completed)
