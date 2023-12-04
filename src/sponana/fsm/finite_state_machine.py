@@ -182,7 +182,7 @@ class FiniteStateMachine(LeafSystem):
 
     def _execute_finite_state_machine(self, context: Context, state: State):
         complete_flag = int(context.get_discrete_state(self._completed).get_value())
-        while complete_flag == 0:
+        if complete_flag == 0:
             check_do_rrt = self._update_do_rrt(context)
             state.set_value(self._do_rrt, check_do_rrt)
             self._update_camera_ind(context, state)
