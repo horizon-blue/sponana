@@ -30,6 +30,7 @@ def solve_ik(
     rotation_bound: float = 0.01,
     position_bound: float = 0.01,
     collision_bound: float = 0.001,
+    max_iter: int = 10,
 ):
     """Convert the desired pose for Spot to joint angles, subject to constraints.
 
@@ -46,7 +47,7 @@ def solve_ik(
         collision_bound (float, optional): The minimum allowed distance between Spot and the other
         objects in the scene.
     """
-    for _ in range(200):
+    for _ in range(max_iter):
         ik = InverseKinematics(plant, context)
         q = ik.q()  # Get variables for MathematicalProgram
         prog = ik.prog()  # Get MathematicalProgram
@@ -56,7 +57,7 @@ def solve_ik(
 
         # nominal pose
         q0 = np.zeros(len(q))
-        q0[:3] = base_position 
+        q0[:3] = base_position
         q0[3:10] = q_nominal_arm
 
         # Target position and rotation
