@@ -109,13 +109,15 @@ class FiniteStateMachine(LeafSystem):
         see_banana = self.get_see_banana_input_port().Eval(context)
         has_banana = self.get_has_banana_input_port().Eval(context)
         current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
+        new_cam_ind = current_cam_ind
+        num_poses = len(self.get_camera_poses_input_port().Eval(context))
         if current_cam_reached == 1 and see_banana == 0 and has_banana == 0:
-            if current_cam_ind <= 7:
-                current_cam_ind += 1
+            if current_cam_ind <= num_poses-1:
+                new_cam_ind += 1
             #none viewpoints have bananas, so do it all again?
             else:
-                current_cam_ind = 0
-        state.set_value(self._camera_pose_ind, current_cam_ind)
+                new_cam_ind = 0
+        state.set_value(self._camera_pose_ind, new_cam_ind)
 
 
     def _get_camera_pose(self, context: Context):
