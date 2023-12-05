@@ -65,6 +65,7 @@ class SpotArmIKController(LeafSystem):
                 base_position=base_position,
                 target_frame_name="arm_link_fngr",
                 fix_base=True,
+                max_iter=1,
             )
             self._last_state = q[3:10]
 

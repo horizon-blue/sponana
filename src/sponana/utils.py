@@ -60,17 +60,17 @@ def run_simulation(simulator: Simulator, meshcat: Meshcat, finish_time=2.0):
 
 def set_spot_positions(
     spot_state: np.ndarray,
-    diagram: Diagram,
+    station: Diagram,
     root_context: Context,
     visualize: bool = True,
 ):
     """Update the Spot's joint positions to the given `spot_state` (a 10-dim vector) in the
     diagram. If `visualize` is True, the updated diagram will be visualized in Meshcat.
     """
-    plant = diagram.GetSubsystemByName("station").GetSubsystemByName("plant")
+    plant = station.GetSubsystemByName("plant")
     plant_context = plant.GetMyContextFromRoot(root_context)
     plant.SetPositions(plant_context, plant.GetModelInstanceByName("spot"), spot_state)
 
     if visualize:
-        diagram_context = diagram.GetMyContextFromRoot(root_context)
-        diagram.ForcedPublish(diagram_context)
+        station_context = station.GetMyContextFromRoot(root_context)
+        station.ForcedPublish(station_context)
