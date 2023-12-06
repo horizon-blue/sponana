@@ -262,11 +262,6 @@ model_drivers:
             )
 
             #if add_finite_state_machine:
-            #plant = station.GetSubsystemByName("plant")
-            #plant_context = plant.GetMyContextFromRoot(context)
-            #navigator = plant.GetSubsystemByName("navigator")
-            #banana_spotter = plant.GetSubsystemByName("banana_spotter")
-            #grasper = plant.GetSubsystemByName("grasper")
             fsm = builder.AddNamedSystem("finite_state_machine", finite_state_machine())
             #get camera base poses from somewhere
             builder.Connect(station.GetOutputPort("cameras.state_estimated"),

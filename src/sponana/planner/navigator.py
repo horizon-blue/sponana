@@ -40,6 +40,7 @@ class Navigator(LeafSystem):
         # internal states & output port
         self._base_position = self.DeclareDiscreteState(3)
         self._traj_idx = self.DeclareDiscreteState(1)
+        self._done_rrt = self.DeclareDiscreteState(1)
         self.DeclareStateOutputPort("base_position", self._base_position)
 
         # Periodically update the state to move to the next position in the
@@ -54,6 +55,9 @@ class Navigator(LeafSystem):
 
         # Initialize internal simulation model
         self._init_internal_model(scenario_file)
+
+        #output port for when Navigator is done
+        self.DeclareVectorOutputPort("done_rrt",self._done_rrt)
 
         # kick off the planner
         self.DeclareInitializationDiscreteUpdateEvent(self._plan_trajectory)
@@ -90,6 +94,7 @@ class Navigator(LeafSystem):
         # initial state
         state.set_value(self._base_position, trajectory[0])
         state.set_value(self._traj_idx, [0])
+        state.set_value(self._done_rrt, 1)
 
     def _update(self, context: Context, state: State):
         last_idx = int(context.get_discrete_state(self._traj_idx).get_value())
