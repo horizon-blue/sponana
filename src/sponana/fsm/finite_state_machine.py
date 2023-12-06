@@ -52,7 +52,7 @@ class FiniteStateMachine(LeafSystem):
         self.DeclareVectorOutputPort("grasp_banana", 1,self._get_grasp_banana)
 
         
-        self.DeclareVectorInputPort("do_rrt",1, self._get_do_rrt)
+        self.DeclareVectorOutputPort("do_rrt",1, self._get_do_rrt)
 
         self.DeclarePeriodicDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_finite_state_machine)
     
@@ -204,6 +204,6 @@ class FiniteStateMachine(LeafSystem):
         grasp_banana = self._grasp_banana.Eval(context)
         output.SetFromVector(grasp_banana)
     
-    def _get_single_cam_pose(self, context, output):
+    def _get_next_camera_pose(self, context, output):
         next_camera_pose = self._next_camera_pose.Eval(context)
         output.set_value(next_camera_pose)
