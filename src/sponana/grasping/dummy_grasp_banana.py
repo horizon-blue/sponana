@@ -20,7 +20,7 @@ class DummyGrasper(LeafSystem):
         self.DeclareVectorInputPort("do_grasp", 1)
 
 
-        self.DeclareVectorOutputPort("banana_grasped", 1,self._get_banana_grasped)
+        self.DeclareVectorOutputPort("banana_grasped", 1,self._get_banana_grasped, prerequisites_of_calc=set([self.xd_ticket()]))
         self.DeclarePeriodicDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_grasp)
 
     def get_do_grasp_input_port(self):

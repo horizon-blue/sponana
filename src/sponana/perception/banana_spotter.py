@@ -40,7 +40,7 @@ class BananaSpotter(LeafSystem):
             lambda: AbstractValue.Make(RigidTransform()),
             self._locate_banana,
         )
-        self.DeclareVectorOutputPort("has_banana", 1, self._find_banana)
+        self.DeclareVectorOutputPort("has_banana", 1, self._find_banana, prerequisites_of_calc=set([self.xd_ticket()]))
 
     def get_check_banana_input_port(self):
         return self.get_input_port(0)

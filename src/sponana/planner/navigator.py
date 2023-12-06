@@ -58,7 +58,7 @@ class Navigator(LeafSystem):
         self._init_internal_model(scenario_file)
 
         # output port for when Navigator is done
-        self.DeclareVectorOutputPort("done_rrt", 1, self._get_done_rrt)
+        self.DeclareVectorOutputPort("done_rrt", 1, self._get_done_rrt, prerequisites_of_calc=set([self.xd_ticket()]))
 
         # kick off the planner
         self.DeclareInitializationDiscreteUpdateEvent(self._plan_trajectory)
@@ -106,9 +106,9 @@ class Navigator(LeafSystem):
             # initial state
             state.set_value(self._base_position, trajectory[0])
             state.set_value(self._traj_idx, [0])
-            state.set_value(self._done_rrt, 1)
+            state.set_value(self._done_rrt, [1])
         else:
-            state.set_value(self._done_rrt, 0)
+            state.set_value(self._done_rrt, [0])
 
     def _update(self, context: Context, state: State):
         last_idx = int(context.get_discrete_state(self._traj_idx).get_value())

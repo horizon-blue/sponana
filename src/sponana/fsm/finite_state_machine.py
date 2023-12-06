@@ -46,10 +46,10 @@ class FiniteStateMachine(LeafSystem):
         ###OUTPUT PORTS
 
         #next_camera_pose to be q_goal for the navigator
-        self.DeclareVectorOutputPort("single_cam_pose",3, self._get_next_camera_pose)
-        self.DeclareVectorOutputPort("check_banana",1,self._get_check_banana)
+        self.DeclareVectorOutputPort("single_cam_pose",3, self._get_next_camera_pose, prerequisites_of_calc=set([self.xd_ticket()]))
+        self.DeclareVectorOutputPort("check_banana",1,self._get_check_banana, prerequisites_of_calc=set([self.xd_ticket()]))
 
-        self.DeclareVectorOutputPort("grasp_banana", 1,self._get_grasp_banana)
+        self.DeclareVectorOutputPort("grasp_banana", 1,self._get_grasp_banana, prerequisites_of_calc=set([self.xd_ticket()]))
 
         
         self.DeclareVectorOutputPort("do_rrt",1, self._get_do_rrt)
@@ -65,6 +65,17 @@ class FiniteStateMachine(LeafSystem):
     
     def get_has_banana_input_port(self):
         return self.get_input_port(2)    
+    
+    """
+    def get_next_cam_pose_output_port(self):
+        return self.get_output_port(0)
+    def get_check_banana_output_port(self):
+        return self.get_output_port(1)
+    def get_grasp_banana_output_port(self):
+        return self.get_output_port(2)
+    def get_do_rrt_output_port(self):
+        return self.get_output_port(3)
+    """
     
     def _update_do_rrt(self, context: Context):
         """
@@ -193,17 +204,25 @@ class FiniteStateMachine(LeafSystem):
             state.set_value(self._completed, completed)
 
     def _get_do_rrt(self, context, output):
-        do_rrt = self._do_rrt.Eval(context)
-        output.SetFromVector(do_rrt)
+        #do_rrt = self._do_rrt.Eval(context)
+        do_rrt = int(context.get_discrete_state(self._do_rrt).get_value())
+        print("do_rrt retrieval", do_rrt)
+        output.SetFromVector([do_rrt])
 
     def _get_check_banana(self, context, output):
-        check_banana = self._check_banana.Eval(context)
-        output.SetFromVector(check_banana)
+        #check_banana = self._check_banana.Eval(context)
+        check_banana = int(context.get_discrete_state(self._check_banana).get_value())
+        print("check_banana retrieval", check_banana)
+        output.SetFromVector([check_banana])
 
     def _get_grasp_banana(self, context, output):
-        grasp_banana = self._grasp_banana.Eval(context)
-        output.SetFromVector(grasp_banana)
+        #grasp_banana = self._grasp_banana.Eval(context)
+        grasp_banana = int(context.get_discrete_state(self._grasp_banana).get_value())
+        print("grasp_banana retrieval", grasp_banana)
+        output.SetFromVector([grasp_banana])
     
     def _get_next_camera_pose(self, context, output):
-        next_camera_pose = self._next_camera_pose.Eval(context)
+        #next_camera_pose = self._next_camera_pose.Eval(context)
+        next_camera_pose = int(context.get_discrete_state(self._next_camera_pose).get_value())
+        print("next_camera_pose retrieval", next_camera_pose)
         output.set_value(next_camera_pose)
