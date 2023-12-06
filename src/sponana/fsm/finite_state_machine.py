@@ -46,7 +46,7 @@ class FiniteStateMachine(LeafSystem):
         ###OUTPUT PORTS
 
         #next_camera_pose to be q_goal for the navigator
-        self.DeclareVectorOutputPort("single_cam_pose",1, self._get_next_camera_pose)
+        self.DeclareVectorOutputPort("single_cam_pose",3, self._get_next_camera_pose)
         self.DeclareVectorOutputPort("check_banana",1,self._get_check_banana)
 
         self.DeclareVectorOutputPort("grasp_banana", 1,self._get_grasp_banana)

@@ -305,19 +305,24 @@ model_drivers:
                 fsm.GetOutputPort("single_cam_pose"), 
                 planner.GetInputPort("target_position")
             )
+            #already wired
+            """
             builder.Connect(
                 fsm.GetOutputPort("check_banana"), 
                 banana_spotter.GetInputPort("check_banana")
             )
+            """
             builder.Connect(
                 fsm.GetOutputPort("grasp_banana"), 
                 grasper.GetInputPort("do_grasp")
             )
+            #already wired
+            """
             builder.Connect(
                 fsm.GetOutputPort("do_rrt"), 
                 planner.GetInputPort("do_rrt")
             )
-            #grasper = builder.AddNamedSystem("grasper")
+            """
 
         if debug:
             # Connect debugger
