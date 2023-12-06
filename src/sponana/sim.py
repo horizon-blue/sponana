@@ -209,6 +209,12 @@ model_drivers:
         if not use_teleop:
             # planner
             planner = builder.AddNamedSystem("navigator", Navigator(meshcat=meshcat))
+            spot_camera = station.GetSubsystemByName("rgbd_sensor_spot_camera")
+            fsm = builder.AddNamedSystem("finite_state_machine", finite_state_machine())
+            banana_spotter = builder.AddNamedSystem(
+                "banana_spotter",
+                BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
+            )
             builder.Connect(
                 station.GetOutputPort("spot.state_estimated"),
                 planner.get_spot_state_input_port(),
@@ -237,11 +243,7 @@ model_drivers:
             ]
 
             # Perception system (Banan Spotter) (placeholder for now)
-            spot_camera = station.GetSubsystemByName("rgbd_sensor_spot_camera")
-            banana_spotter = builder.AddNamedSystem(
-                "banana_spotter",
-                BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
-            )
+            
             builder.Connect(
                 fsm.GetOutputPort("check_banana"),
                 banana_spotter.get_check_banana_input_port(),
@@ -275,7 +277,6 @@ model_drivers:
             )
 
             #if add_finite_state_machine:
-            fsm = builder.AddNamedSystem("finite_state_machine", finite_state_machine())
             #get camera base poses from somewhere
             camera_pose0 = np.array([1, -2.5, 0.2475])
             camera_pose1 = np.array([1.00000000e00, 1.50392176e-12, 3.15001955e00])
