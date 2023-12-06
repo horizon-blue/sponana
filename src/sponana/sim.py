@@ -43,7 +43,7 @@ from sponana.perception import (
 )
 from sponana.planner import Navigator
 from sponana.fsm import finite_state_machine
-add_finite_state_machine = False
+add_finite_state_machine = True
 
 
 @dataclass
@@ -257,11 +257,13 @@ model_drivers:
             "banana", "banana", station, builder
         )
         builder.Connect(
-            banana_pose_extractor.get_output_port(),
+            banana_pose_extractor.get_routput_port(),
             spot_controller.GetInputPort("desired_gripper_pose"),
         )
 
         if add_finite_state_machine:
+            plant = station.GetSubsystemByName("plant")
+            plant_context = plant.GetMyContextFromRoot(context)
             navigator = station.GetSubsystemByName("navigator")
             banana_spotter = station.GetSubsystemByName("banana_spotter")
             grasper = station.GetSubsystemByName("grasper")
