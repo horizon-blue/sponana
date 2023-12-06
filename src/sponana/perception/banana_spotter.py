@@ -15,8 +15,10 @@ class BananaSpotter(LeafSystem):
     def __init__(self, camera: RgbdSensor, num_tables: int = 0):
         super().__init__()
         self._camera = camera
+        self._check_banana = self.DeclareDiscreteState(1)
 
         # Input ports
+        self.DeclareVectorInputPort("check_banana",1)
         self.DeclareAbstractInputPort(
             "color_image", camera.color_image_output_port().Allocate()
         )
@@ -31,7 +33,7 @@ class BananaSpotter(LeafSystem):
             self.DeclareAbstractInputPort(
                 f"table{i}_pose", AbstractValue.Make(RigidTransform())
             )
-
+        
         # Output ports
         self.DeclareAbstractOutputPort(
             "banana_pose",
@@ -40,30 +42,41 @@ class BananaSpotter(LeafSystem):
         )
         self.DeclareVectorOutputPort("has_banana", 1, self._find_banana)
 
-    def get_color_image_input_port(self):
+    def get_check_banana_input_port(self):
         return self.get_input_port(0)
 
-    def get_depth_image_input_port(self):
+    def get_color_image_input_port(self):
         return self.get_input_port(1)
 
-    def get_camera_pose_input_port(self):
+    def get_depth_image_input_port(self):
         return self.get_input_port(2)
 
+    def get_camera_pose_input_port(self):
+        return self.get_input_port(3)
+
     def get_table_pose_input_port(self, table_index: int):
-        return self.get_input_port(3 + table_index)
+        return self.get_input_port(4 + table_index)
 
     def _locate_banana(self, context: Context, output: AbstractValue):
         banana_pose, _ = self._find_and_locate_banana(context)
         output.set_value(banana_pose)
 
     def _find_banana(self, context: Context, output: BasicVector):
-        _, has_banana = self._find_and_locate_banana(context)
-        output[0] = has_banana
+        check_banana = self.get_check_banana_input_port().Eval(context)
+        if check_banana == 1:
+            _, has_banana = self._find_and_locate_banana(context)
+            output[0] = has_banana
+        else:
+            output[0] = 0
 
     @cache
     def _find_and_locate_banana(self, context: Context) -> (RigidTransform, bool):
         # color_image = self.EvalAbstractInput(context, 0).get_value()
         # depth_image = self.EvalAbstractInput(context, 1).get_value()
-        banana_pose = RigidTransform()
-        has_banana = not not banana_pose
-        return banana_pose, has_banana
+        check_banana = self.get_check_banana_input_port().Eval(context)
+        if check_banana == 1:
+            banana_pose = RigidTransform()
+            has_banana = not not banana_pose
+            return banana_pose, has_banana
+        else:
+            return [], 0

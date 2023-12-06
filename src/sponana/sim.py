@@ -218,6 +218,11 @@ model_drivers:
                 spot_controller.GetInputPort("desired_base_position"),
             )
             builder.Connect(
+                fsm.GetOutputPort("do_rrt"),
+                planner.get_do_rrt_input_port(),
+            )
+
+            builder.Connect(
             planner.GetOutputPort("done_rrt"),
             fsm.get_camera_reached_input_port())
 
@@ -237,6 +242,11 @@ model_drivers:
                 "banana_spotter",
                 BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
             )
+            builder.Connect(
+                fsm.GetOutputPort("check_banana"),
+                banana_spotter.get_check_banana_input_port(),
+            )
+
             builder.Connect(
                 station.GetOutputPort("spot_camera.rgb_image"),
                 banana_spotter.get_color_image_input_port(),
@@ -281,7 +291,6 @@ model_drivers:
             builder.Connect(
             banana_spotter.GetOutputPort("has_banana"),
             fsm.get_see_banana_input_port())
-
 
             builder.Connect(
             grasper.GetOutputPort("banana_grasped"),
