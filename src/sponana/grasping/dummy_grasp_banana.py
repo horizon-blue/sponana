@@ -15,12 +15,12 @@ from pydrake.all import (
 class DummyGrasper(LeafSystem):
     def __init__(self, time_step: float = 0.1):
         super().__init__()
-        self._has_banana = self.DeclareDiscreteState(1)
+        self._banana_grasped = self.DeclareDiscreteState(1)
 
         self.DeclareVectorInputPort("do_grasp", 1)
 
 
-        self.DeclareVectorOutputPort("has_banana", 1,self._get_has_banana)
+        self.DeclareVectorOutputPort("banana_grasped", 1,self._get_banana_grasped)
         self.DeclarePeriodicDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_grasp)
 
     def get_do_grasp_input_port(self):
@@ -28,13 +28,13 @@ class DummyGrasper(LeafSystem):
 
     def _execute_grasp(self, context, state):
         do_grasp_flag = self.get_do_grasp_input_port().Eval(context)
-        has_banana = 0
+        banana_grasped = 0
         if do_grasp_flag == 1:
             #doactualgrasp
-            has_banana = 1
-        state.set_value(self._has_banana, has_banana)
+            banana_grasped = 1
+        state.set_value(self._banana_grasped, banana_grasped)
 
 
-    def _get_has_banana(self, context, output):
-        has_banana = self._has_banana.Eval(context)
-        output.SetFromVector(has_banana)
+    def _get_banana_grasped(self, context, output):
+        banana_grasped = self._banana_grasped.Eval(context)
+        output.SetFromVector(banana_grasped)

@@ -43,6 +43,7 @@ from sponana.perception import (
 )
 from sponana.planner import Navigator
 from sponana.fsm import FiniteStateMachine
+from sponana.grasping import DummyGrasper
 add_finite_state_machine = True
 
 
@@ -222,6 +223,7 @@ model_drivers:
                 "banana_spotter",
                 BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
             )
+            grasper = builder.AddNamedSystem("banana_grasper",DummyGrasper())
             #get camera base poses from somewhere
             camera_pose0 = np.array([1, -2.5, 0.2475])
             camera_pose1 = np.array([1.00000000e00, 1.50392176e-12, 3.15001955e00])
@@ -293,8 +295,7 @@ model_drivers:
             fsm.get_see_banana_input_port())
 
             builder.Connect(
-            #grasper.GetOutputPort("banana_grasped"),
-            0, 
+            grasper.GetOutputPort("banana_grasped"), 
             fsm.get_has_banana_input_port())
 
             #output ports
@@ -310,8 +311,7 @@ model_drivers:
             )
             builder.Connect(
                 fsm.GetOutputPort("grasp_banana"), 
-                #grasper.GetInputPort("grasp_banana")
-                0
+                grasper.GetInputPort("do_grasp")
             )
             builder.Connect(
                 fsm.GetOutputPort("do_rrt"), 
