@@ -111,11 +111,13 @@ class Navigator(LeafSystem):
             state.set_value(self._done_rrt, [0])
 
     def _update(self, context: Context, state: State):
-        last_idx = int(context.get_discrete_state(self._traj_idx).get_value())
-        idx = last_idx + 1 if last_idx < len(self._trajectory) - 1 else last_idx
+        do_rrt = self.get_do_rrt_input_port().Eval(context)
+        if do_rrt == 1:
+            last_idx = int(context.get_discrete_state(self._traj_idx).get_value())
+            idx = last_idx + 1 if last_idx < len(self._trajectory) - 1 else last_idx
 
-        state.set_value(self._base_position, self._trajectory[idx])
-        state.set_value(self._traj_idx, [idx])
+            state.set_value(self._base_position, self._trajectory[idx])
+            state.set_value(self._traj_idx, [idx])
 
     def _collision_check(self, configuration: ConfigType) -> bool:
         # move Spot to the proposed position
@@ -127,8 +129,9 @@ class Navigator(LeafSystem):
         return _spot_in_collision(self._plant, self._scene_graph, self._station_context)
 
     def _get_done_rrt(self, context, output):
-        done_rrt = self._done_rrt.Eval(context)
-        output.SetFromVector(done_rrt)
+        #done_rrt = self._done_rrt.Eval(context)
+        done_rrt = int(context.get_discrete_state(self._done_rrt).get_value())
+        output.SetFromVector([done_rrt])
 
     def _init_internal_model(self, scenario_file: str):
         """Initialize the planner's own internal model of the environment and use it for collision checking."""

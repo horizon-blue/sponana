@@ -117,7 +117,7 @@ class FiniteStateMachine(LeafSystem):
         has_banana = self.get_has_banana_input_port().Eval(context)
         current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
         new_cam_ind = current_cam_ind
-        num_poses = len(self.get_camera_poses_input_port().Eval(context))
+        num_poses = len(self._camera_pos_list)
         if current_cam_reached == 1 and see_banana == 0 and has_banana == 0:
             if current_cam_ind <= num_poses-1:
                 new_cam_ind += 1
@@ -192,16 +192,16 @@ class FiniteStateMachine(LeafSystem):
         complete_flag = int(context.get_discrete_state(self._completed).get_value())
         if complete_flag == 0:
             check_do_rrt = self._update_do_rrt(context)
-            state.set_value(self._do_rrt, check_do_rrt)
+            state.set_value(self._do_rrt, [check_do_rrt])
             check_banana = self._update_check_banana(context)
-            state.set_value(self._check_banana, check_banana)
+            state.set_value(self._check_banana, [check_banana])
             grasp_banana = self._update_grasp_banana(context)
-            state.set_value(self._grasp_banana, grasp_banana)
+            state.set_value(self._grasp_banana, [grasp_banana])
             self._update_camera_ind(context, state)
             next_camera_pose = self._get_camera_pose(context)
             state.set_value(self._next_camera_pose, next_camera_pose)
             completed = self._update_completion(context)
-            state.set_value(self._completed, completed)
+            state.set_value(self._completed, [completed])
 
     def _get_do_rrt(self, context, output):
         #do_rrt = self._do_rrt.Eval(context)

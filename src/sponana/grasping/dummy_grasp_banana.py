@@ -32,9 +32,10 @@ class DummyGrasper(LeafSystem):
         if do_grasp_flag == 1:
             #doactualgrasp
             banana_grasped = 1
-        state.set_value(self._banana_grasped, banana_grasped)
+        state.set_value(self._banana_grasped, [banana_grasped])
 
 
     def _get_banana_grasped(self, context, output):
-        banana_grasped = self._banana_grasped.Eval(context)
-        output.SetFromVector(banana_grasped)
+        #banana_grasped = self._banana_grasped.Eval(context)
+        banana_grasped = int(context.get_discrete_state(self._banana_grasped).get_value())
+        output.SetFromVector([banana_grasped])
