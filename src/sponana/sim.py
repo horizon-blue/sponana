@@ -222,7 +222,12 @@ model_drivers:
                 "banana_spotter",
                 BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
             )
-            fsm = builder.AddNamedSystem("finite_state_machine", FiniteStateMachine())
+            #get camera base poses from somewhere
+            camera_pose0 = np.array([1, -2.5, 0.2475])
+            camera_pose1 = np.array([1.00000000e00, 1.50392176e-12, 3.15001955e00])
+            camera_pose2 = np.array([-2, -2, 0.2475])
+            camera_pos_list = [camera_pose0, camera_pose1, camera_pose2]
+            fsm = builder.AddNamedSystem("finite_state_machine", FiniteStateMachine(camera_pos_list))
             builder.Connect(
                 station.GetOutputPort("spot.state_estimated"),
                 planner.get_spot_state_input_port(),
@@ -278,21 +283,6 @@ model_drivers:
             )
 
             #if add_finite_state_machine:
-            #get camera base poses from somewhere
-            camera_pose0 = np.array([1, -2.5, 0.2475])
-            camera_pose1 = np.array([1.00000000e00, 1.50392176e-12, 3.15001955e00])
-            camera_pose2 = np.array([-2, -2, 0.2475])
-            camera_pose_list = [camera_pose0, camera_pose1, camera_pose2]
-            builder.Connect(
-                #station.GetOutputPort("cameras.state_estimated"),
-                            camera_pose_list, 
-                            fsm.get_camera_poses_input_port())
-            
-
-
-            builder.Connect(
-            station.GetOutputPort("spot.state_estimated"),
-            fsm.get_spot_state_input_port())
 
             builder.Connect(
             planner.GetOutputPort("done_rrt"),

@@ -17,8 +17,9 @@ class FiniteStateMachine(LeafSystem):
     and go to each of these cameras in order (using the Navigator leaf system)
     , until banana is found.
     """
-    def __init__(self,time_step: float = 0.1):
+    def __init__(self,camera_pos_list, time_step: float = 0.1):
         super().__init__()
+        self._camera_pos_list = camera_pos_list
         self._camera_pose_ind = self.DeclareDiscreteState(1)
         self._completed = self.DeclareDiscreteState(1)
         self._next_camera_pose = self.DeclareDiscreteState(3)
@@ -29,11 +30,11 @@ class FiniteStateMachine(LeafSystem):
         self._do_rrt = self.DeclareDiscreteState(1)
         ### Input ports
         #list of camera poses for Spot to travel to in order
-        #self.DeclareAbstractInputPort("camera_poses", [AbstractValue.Make(RigidTransform())]*9)
-        self.DeclareAbstractInputPort("camera_poses", [self.DeclareDiscreteState(3)]*9)
+        #self.DeclareAbstractInputPort("camera_poses", 3, [self.DeclareDiscreteState(3)])
+        #self.DeclareVectorInputPort("camera_poses", num_camera_pos, [self.DeclareDiscreteState(3)])
         #spot "start state for RRT for navigator leaf system". 
         #don't know if need because navigator already gets this from the station
-        self.DeclareVectorInputPort("spot_init_state", 20)
+        #self.DeclareVectorInputPort("spot_init_state", 20)
         #check if camera has been reached (some value returned from Navigator)
         self.DeclareVectorInputPort("camera_reached", 1)
 
@@ -55,20 +56,15 @@ class FiniteStateMachine(LeafSystem):
 
         self.DeclarePeriodicDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_finite_state_machine)
     
-    def get_camera_poses_input_port(self):
-        return self.get_input_port(0)
-    
-    def get_spot_state_input_port(self):
-        return self.get_input_port(1)
     
     def get_camera_reached_input_port(self):
-        return self.get_input_port(2)
+        return self.get_input_port(0)
     
     def get_see_banana_input_port(self):
-        return self.get_input_port(3)
+        return self.get_input_port(1)
     
     def get_has_banana_input_port(self):
-        return self.get_input_port(4)    
+        return self.get_input_port(2)    
     
     def _update_do_rrt(self, context: Context):
         """
@@ -130,8 +126,7 @@ class FiniteStateMachine(LeafSystem):
         - next camera pose
         """
         current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
-        camera_pose_list = self.get_camera_poses_input_port().Eval(context)
-        next_camera_pose = camera_pose_list[current_cam_ind]
+        next_camera_pose = self.camera_pos_list[current_cam_ind]
         return next_camera_pose
         
 
