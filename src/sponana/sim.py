@@ -317,7 +317,7 @@ model_drivers:
                 fsm.GetOutputPort("do_rrt"), 
                 planner.GetInputPort("do_rrt")
             )
-            #ddgrasper = builder.AddNamedSystem("grasper")
+            #grasper = builder.AddNamedSystem("grasper")
 
         if debug:
             # Connect debugger
