@@ -220,7 +220,7 @@ model_drivers:
             builder.Connect(
             planner.GetOutputPort("done_rrt"),
             fsm.get_camera_reached_input_port())
-            #pushed into the teleop code
+
             # Get camera and table poses
             spot_camera_config = scenario.cameras["spot_camera"]
             camera_pose_extractor = add_camera_pose_extractor(
@@ -275,7 +275,7 @@ model_drivers:
             fsm.get_spot_state_input_port())
 
             builder.Connect(
-            planner.GetOutputPort("camera_reached"),
+            planner.GetOutputPort("done_rrt"),
             planner.get_camera_reached_input_port())
 
             builder.Connect(

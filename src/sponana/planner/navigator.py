@@ -52,6 +52,7 @@ class Navigator(LeafSystem):
         # Input ports
         self.DeclareVectorInputPort("spot_state", 20)
         self.DeclareVectorInputPort("target_position", 3)
+        self.DeclareVectorInputPort("do_rrt",1)
 
         # Initialize internal simulation model
         self._init_internal_model(scenario_file)
@@ -67,34 +68,41 @@ class Navigator(LeafSystem):
 
     def get_target_position_input_port(self):
         return self.get_input_port(1)
+    
+    def get_do_rrt_input_port(self):
+        return self.get_input_port(2)
 
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
-        current_position = self.get_spot_state_input_port().Eval(context)[:3]
-        # FIXME: hard code the goal for now
-        target_position = self.get_target_position_input_port().Eval(context)
-        #target_position = np.array([-2, -2, 3.15001955e00]) #fixed target position test
-        spot_problem = SpotProblem(
-            current_position, target_position, self._collision_check
-        )
-        trajectory = rrt_planning(spot_problem, max_iterations=1000)
+        do_rrt = self.get_do_rrt_input_port().Eval(context)
+        if do_rrt == 1: 
+            current_position = self.get_spot_state_input_port().Eval(context)[:3]
+            # FIXME: hard code the goal for now
+            target_position = self.get_target_position_input_port().Eval(context)
+            #target_position = np.array([-2, -2, 3.15001955e00]) #fixed target position test
+            spot_problem = SpotProblem(
+                current_position, target_position, self._collision_check
+            )
+            trajectory = rrt_planning(spot_problem, max_iterations=1000)
 
-        if self._meshcat:
-            for t, pose in enumerate(trajectory):
-                # convert position to pose for plotting
-                pose = RigidTransform(
-                    RotationMatrix.MakeZRotation(pose[2]), [*pose[:2], 0.0]
-                )
-                opacity = 0.2 if t > 0 and t < len(trajectory) - 1 else 1.0
-                AddMeshcatTriad(
-                    self._meshcat, f"trajectory_{t}", X_PT=pose, opacity=opacity
-                )
+            if self._meshcat:
+                for t, pose in enumerate(trajectory):
+                    # convert position to pose for plotting
+                    pose = RigidTransform(
+                        RotationMatrix.MakeZRotation(pose[2]), [*pose[:2], 0.0]
+                    )
+                    opacity = 0.2 if t > 0 and t < len(trajectory) - 1 else 1.0
+                    AddMeshcatTriad(
+                        self._meshcat, f"trajectory_{t}", X_PT=pose, opacity=opacity
+                    )
 
-        self._trajectory = trajectory
-        # initial state
-        state.set_value(self._base_position, trajectory[0])
-        state.set_value(self._traj_idx, [0])
-        state.set_value(self._done_rrt, 1)
+            self._trajectory = trajectory
+            # initial state
+            state.set_value(self._base_position, trajectory[0])
+            state.set_value(self._traj_idx, [0])
+            state.set_value(self._done_rrt, 1)
+        else:
+            state.set_value(self._done_rrt, 0)
 
     def _update(self, context: Context, state: State):
         last_idx = int(context.get_discrete_state(self._traj_idx).get_value())
