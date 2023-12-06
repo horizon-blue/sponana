@@ -277,9 +277,17 @@ model_drivers:
             #if add_finite_state_machine:
             fsm = builder.AddNamedSystem("finite_state_machine", finite_state_machine())
             #get camera base poses from somewhere
-            builder.Connect(station.GetOutputPort("cameras.state_estimated"),
+            camera_pose0 = np.array([1, -2.5, 0.2475])
+            camera_pose1 = np.array([1.00000000e00, 1.50392176e-12, 3.15001955e00])
+            camera_pose2 = np.array([-2, -2, 0.2475])
+            camera_pose_list = [camera_pose0, camera_pose1, camera_pose2]
+            builder.Connect(
+                #station.GetOutputPort("cameras.state_estimated"),
+                            camera_pose_list, 
                             fsm.get_camera_poses_input_port())
-            #not necessarily needed
+            
+
+
             builder.Connect(
             station.GetOutputPort("spot.state_estimated"),
             fsm.get_spot_state_input_port())
@@ -293,7 +301,8 @@ model_drivers:
             fsm.get_see_banana_input_port())
 
             builder.Connect(
-            grasper.GetOutputPort("banana_grasped"),
+            #grasper.GetOutputPort("banana_grasped"),
+            0
             fsm.get_has_banana_input_port())
 
             #output ports
@@ -309,13 +318,14 @@ model_drivers:
             )
             builder.Connect(
                 fsm.GetOutputPort("grasp_banana"), 
-                grasper.GetInputPort("grasp_banana")
+                #grasper.GetInputPort("grasp_banana")
+                1
             )
             builder.Connect(
                 fsm.GetOutputPort("do_rrt"), 
                 planner.GetInputPort("do_rrt")
             )
-
+            #ddgrasper = builder.AddNamedSystem("grasper")
 
         if debug:
             # Connect debugger
