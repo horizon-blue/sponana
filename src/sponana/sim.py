@@ -42,6 +42,8 @@ from sponana.perception import (
     add_camera_pose_extractor,
 )
 from sponana.planner import Navigator
+from sponana.fsm import finite_state_machine
+add_finite_state_machine = False
 
 
 @dataclass
@@ -258,6 +260,53 @@ model_drivers:
             banana_pose_extractor.get_output_port(),
             spot_controller.GetInputPort("desired_gripper_pose"),
         )
+
+        if add_finite_state_machine:
+            navigator = station.GetSubsystemByName("navigator")
+            banana_spotter = station.GetSubsystemByName("banana_spotter")
+            grasper = station.GetSubsystemByName("grasper")
+            fsm = builder.AddNamedSystem("finite_state_machine", finite_state_machine())
+            #get camera base poses from somewhere
+            builder.Connect(station.GetOutputPort("cameras.state_estimated"),
+                            fsm.get_camera_poses_input_port())
+            #not necessarily needed
+            builder.Connect(
+            station.GetOutputPort("spot.state_estimated"),
+            fsm.get_spot_state_input_port())
+
+            builder.Connect(
+            navigator.GetOutputPort("camera_reached"),
+            navigator.get_camera_reached_input_port())
+
+            builder.Connect(
+            banana_spotter.GetOutputPort("has_banana"),
+            fsm.get_see_banana_input_port())
+
+
+            builder.Connect(
+            grasper.GetOutputPort("banana_grasped"),
+            fsm.get_has_banana_input_port())
+
+            #output ports
+
+            #single cam pose in discretevalue(3) just the desired base pose
+            builder.Connect(
+                fsm.GetOutputPort("single_cam_pose"), 
+                navigator.GetInputPort("target_position")
+            )
+            builder.Connect(
+                fsm.GetOutputPort("check_banana"), 
+                banana_spotter.GetInputPort("check_banana")
+            )
+            builder.Connect(
+                fsm.GetOutputPort("grasp_banana"), 
+                grasper.GetInputPort("grasp_banana")
+            )
+            builder.Connect(
+                fsm.GetOutputPort("do_rrt"), 
+                navigator.GetInputPort("do_rrt")
+            )
+
 
         if debug:
             # Connect debugger
