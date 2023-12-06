@@ -311,7 +311,7 @@ model_drivers:
             builder.Connect(
                 fsm.GetOutputPort("grasp_banana"), 
                 #grasper.GetInputPort("grasp_banana")
-                1
+                0
             )
             builder.Connect(
                 fsm.GetOutputPort("do_rrt"), 
