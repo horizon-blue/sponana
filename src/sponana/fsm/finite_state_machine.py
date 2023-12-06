@@ -17,7 +17,7 @@ class FiniteStateMachine(LeafSystem):
     and go to each of these cameras in order (using the Navigator leaf system)
     , until banana is found.
     """
-    def __init__(self):
+    def __init__(self,time_step: float = 0.1):
         super().__init__()
         self._camera_pose_ind = self.DeclareDiscreteState(1)
         self._completed = self.DeclareDiscreteState(1)
@@ -53,7 +53,7 @@ class FiniteStateMachine(LeafSystem):
         
         self.DeclareVectorInputPort("do_rrt",self._do_rrt)
 
-        self.DeclareInitializationDiscreteUpdateEvent(self._execute_finite_state_machine)
+        self.DeclareInitializationDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_finite_state_machine)
     
     def get_camera_poses_input_port(self):
         return self.get_input_port(0)
