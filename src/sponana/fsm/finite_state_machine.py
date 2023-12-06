@@ -46,13 +46,13 @@ class FiniteStateMachine(LeafSystem):
         ###OUTPUT PORTS
 
         #next_camera_pose to be q_goal for the navigator
-        self.DeclareVectorOutputPort("single_cam_pose",1, self._next_camera_pose)
-        self.DeclareVectorOutputPort("check_banana",1,self._check_banana)
+        self.DeclareVectorOutputPort("single_cam_pose",1, self._get_next_camera_pose)
+        self.DeclareVectorOutputPort("check_banana",1,self._get_check_banana)
 
-        self.DeclareVectorOutputPort("grasp_banana", 1,self._grasp_banana)
+        self.DeclareVectorOutputPort("grasp_banana", 1,self._get_grasp_banana)
 
         
-        self.DeclareVectorInputPort("do_rrt",1, self._do_rrt)
+        self.DeclareVectorInputPort("do_rrt",1, self._get_do_rrt)
 
         self.DeclarePeriodicDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_finite_state_machine)
     
@@ -191,3 +191,19 @@ class FiniteStateMachine(LeafSystem):
             state.set_value(self._next_camera_pose, next_camera_pose)
             completed = self._update_completion(context)
             state.set_value(self._completed, completed)
+
+    def _get_do_rrt(self, context, output):
+        do_rrt = self._do_rrt.Eval(context)
+        output.SetFromVector(do_rrt)
+
+    def _get_check_banana(self, context, output):
+        check_banana = self._check_banana.Eval(context)
+        output.SetFromVector(check_banana)
+
+    def _get_grasp_banana(self, context, output):
+        grasp_banana = self._grasp_banana.Eval(context)
+        output.SetFromVector(grasp_banana)
+    
+    def _get_single_cam_pose(self, context, output):
+        next_camera_pose = self._next_camera_pose.Eval(context)
+        output.set_value(next_camera_pose)
