@@ -210,11 +210,11 @@ model_drivers:
             # planner
             planner = builder.AddNamedSystem("navigator", Navigator(meshcat=meshcat))
             spot_camera = station.GetSubsystemByName("rgbd_sensor_spot_camera")
-            fsm = builder.AddNamedSystem("finite_state_machine", finite_state_machine())
             banana_spotter = builder.AddNamedSystem(
                 "banana_spotter",
                 BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
             )
+            fsm = builder.AddNamedSystem("finite_state_machine", finite_state_machine())
             builder.Connect(
                 station.GetOutputPort("spot.state_estimated"),
                 planner.get_spot_state_input_port(),
