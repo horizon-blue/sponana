@@ -214,7 +214,7 @@ model_drivers:
                 planner.get_spot_state_input_port(),
             )
             builder.Connect(
-                planner.get_output_port(),
+                planner.get_base_position_output_port(),
                 spot_controller.GetInputPort("desired_base_position"),
             )
             builder.Connect(
@@ -223,8 +223,8 @@ model_drivers:
             )
 
             builder.Connect(
-            planner.GetOutputPort("done_rrt"),
-            fsm.get_camera_reached_input_port())
+                planner.get_done_rrt_output_port(), fsm.get_camera_reached_input_port()
+            )
 
             # Get camera and table poses
             spot_camera_config = scenario.cameras["spot_camera"]
