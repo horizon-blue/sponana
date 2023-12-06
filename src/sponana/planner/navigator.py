@@ -52,12 +52,12 @@ class Navigator(LeafSystem):
         # Input ports
         self.DeclareVectorInputPort("spot_state", 20)
         self.DeclareVectorInputPort("target_position", 3)
-        self.DeclareVectorInputPort("do_rrt",1)
+        self.DeclareVectorInputPort("do_rrt", 1)
 
         # Initialize internal simulation model
         self._init_internal_model(scenario_file)
 
-        #output port for when Navigator is done
+        # output port for when Navigator is done
         self.DeclareVectorOutputPort("done_rrt", 1, self._get_done_rrt)
 
         # kick off the planner
@@ -68,18 +68,18 @@ class Navigator(LeafSystem):
 
     def get_target_position_input_port(self):
         return self.get_input_port(1)
-    
+
     def get_do_rrt_input_port(self):
         return self.get_input_port(2)
 
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
         do_rrt = self.get_do_rrt_input_port().Eval(context)
-        if do_rrt == 1: 
+        if do_rrt == 1:
             current_position = self.get_spot_state_input_port().Eval(context)[:3]
             # FIXME: hard code the goal for now
             target_position = self.get_target_position_input_port().Eval(context)
-            #target_position = np.array([-2, -2, 3.15001955e00]) #fixed target position test
+            # target_position = np.array([-2, -2, 3.15001955e00]) #fixed target position test
             spot_problem = SpotProblem(
                 current_position, target_position, self._collision_check
             )
@@ -123,7 +123,6 @@ class Navigator(LeafSystem):
     def _get_done_rrt(self, context, output):
         done_rrt = self._done_rrt.Eval(context)
         output.SetFromVector(done_rrt)
-
 
     def _init_internal_model(self, scenario_file: str):
         """Initialize the planner's own internal model of the environment and use it for collision checking."""
