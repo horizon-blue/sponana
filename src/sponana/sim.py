@@ -42,7 +42,7 @@ from sponana.perception import (
     add_camera_pose_extractor,
 )
 from sponana.planner import Navigator
-from sponana.fsm import finite_state_machine
+from sponana.fsm import FiniteStateMachine
 add_finite_state_machine = True
 
 
@@ -222,7 +222,7 @@ model_drivers:
                 "banana_spotter",
                 BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
             )
-            fsm = builder.AddNamedSystem("finite_state_machine", finite_state_machine())
+            fsm = builder.AddNamedSystem("finite_state_machine", FiniteStateMachine())
             builder.Connect(
                 station.GetOutputPort("spot.state_estimated"),
                 planner.get_spot_state_input_port(),
