@@ -45,15 +45,15 @@ class FiniteStateMachine(LeafSystem):
         ###OUTPUT PORTS
 
         #next_camera_pose to be q_goal for the navigator
-        self.DeclareVectorOutputPort("single_cam_pose",self._next_camera_pose)
-        self.DeclareVectorOutputPort("check_banana",self._check_banana)
+        self.DeclareVectorOutputPort("single_cam_pose",1, self._next_camera_pose)
+        self.DeclareVectorOutputPort("check_banana",1,self._check_banana)
 
-        self.DeclareVectorOutputPort("grasp_banana", self._grasp_banana)
+        self.DeclareVectorOutputPort("grasp_banana", 1,self._grasp_banana)
 
         
-        self.DeclareVectorInputPort("do_rrt",self._do_rrt)
+        self.DeclareVectorInputPort("do_rrt",1, self._do_rrt)
 
-        self.DeclareInitializationDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_finite_state_machine)
+        self.DeclarePeriodicDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_finite_state_machine)
     
     def get_camera_poses_input_port(self):
         return self.get_input_port(0)
