@@ -72,8 +72,8 @@ class Navigator(LeafSystem):
         """for just moving spot to a q_sample position for collision checks in RRT"""
         current_position = self.get_spot_state_input_port().Eval(context)[:3]
         # FIXME: hard code the goal for now
-        # target_position = self.get_target_position_input_port().Eval(context)
-        target_position = np.array([-2, -2, 3.15001955e00])
+        target_position = self.get_target_position_input_port().Eval(context)
+        #target_position = np.array([-2, -2, 3.15001955e00]) #fixed target position test
         spot_problem = SpotProblem(
             current_position, target_position, self._collision_check
         )
