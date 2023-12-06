@@ -228,7 +228,10 @@ model_drivers:
             camera_pose2 = np.array([-2, -2, 0.2475])
             camera_pos_list = [camera_pose0, camera_pose1, camera_pose2]
             fsm = builder.AddNamedSystem("finite_state_machine", FiniteStateMachine(camera_pos_list))
-            
+            builder.Connect(
+                station.GetOutputPort("spot.state_estimated"),
+                planner.get_spot_state_input_port(),
+            )
             builder.Connect(
                 planner.get_base_position_output_port(),
                 spot_controller.GetInputPort("desired_base_position"),
