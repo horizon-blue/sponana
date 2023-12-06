@@ -283,10 +283,10 @@ model_drivers:
             )
 
             #if add_finite_state_machine:
-
-            builder.Connect(
+            #import port here already wired
+            """builder.Connect(
             planner.GetOutputPort("done_rrt"),
-            planner.get_camera_reached_input_port())
+            fsm.get_camera_reached_input_port())"""
 
             builder.Connect(
             banana_spotter.GetOutputPort("has_banana"),
