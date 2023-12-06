@@ -210,6 +210,14 @@ model_drivers:
             # planner
             planner = builder.AddNamedSystem("navigator", Navigator(meshcat=meshcat))
             spot_camera = station.GetSubsystemByName("rgbd_sensor_spot_camera")
+            spot_camera_config = scenario.cameras["spot_camera"]
+            camera_pose_extractor = add_camera_pose_extractor(
+                spot_camera_config, station, builder
+            )
+            table_pose_extractors = [
+                add_body_pose_extractor(f"table_top{i}", "table_top_link", station, builder)
+                for i in range(3)
+            ]
             banana_spotter = builder.AddNamedSystem(
                 "banana_spotter",
                 BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
@@ -233,14 +241,7 @@ model_drivers:
             )
 
             # Get camera and table poses
-            spot_camera_config = scenario.cameras["spot_camera"]
-            camera_pose_extractor = add_camera_pose_extractor(
-                spot_camera_config, station, builder
-            )
-            table_pose_extractors = [
-                add_body_pose_extractor(f"table_top{i}", "table_top_link", station, builder)
-                for i in range(3)
-            ]
+            
 
             # Perception system (Banan Spotter) (placeholder for now)
             
