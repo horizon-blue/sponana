@@ -12,6 +12,8 @@ from pydrake.all import (
     State
 )
 
+debug_messages = True
+
 class FiniteStateMachine(LeafSystem):
     """Given list of where cameras are in the scene, have spot do RRT
     and go to each of these cameras in order (using the Navigator leaf system)
@@ -91,13 +93,24 @@ class FiniteStateMachine(LeafSystem):
         current_cam_reached = self.get_camera_reached_input_port().Eval(context)
         current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
         check_banana = int(context.get_discrete_state(self._check_banana).get_value())
+        if debug_messages == True: 
+            print("within _update_do_rrt function check ____")
+            print("current_cam_reached:", current_cam_reached)
+            print("check_banana:", check_banana)
         do_rrt = 0
         #just starting, have not reached the first camera pose, do_rrt to get to the first camera
-        if current_cam_reached == 0 and current_cam_ind == 1:
+        if current_cam_reached == 0 and current_cam_ind == 0:
+            if debug_messages == True:
+                print("first_rrt_condition")
             do_rrt = 1
         elif current_cam_reached == 1 and check_banana == 1: 
+            if debug_messages == True:
+                print("second_rrt_condition")
             do_rrt = 1
-        
+        """if current_cam_reached == 0 and current_cam_ind == 0:
+            if debug_messages == True:
+                print("first_rrt_condition")
+            do_rrt = 1"""
         return do_rrt
 
     def _update_camera_ind(self, context: Context, state: State):
@@ -118,13 +131,13 @@ class FiniteStateMachine(LeafSystem):
         current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
         new_cam_ind = current_cam_ind
         num_poses = len(self._camera_pos_list)
-        if current_cam_reached == 1 and see_banana == 0 and has_banana == 0:
+        if current_cam_reached[0] == 1 and see_banana == 0 and has_banana == 0:
             if current_cam_ind <= num_poses-1:
                 new_cam_ind += 1
             #none viewpoints have bananas, so do it all again?
             else:
                 new_cam_ind = 0
-        state.set_value(self._camera_pose_ind, new_cam_ind)
+        state.set_value(self._camera_pose_ind, [new_cam_ind])
 
 
     def _get_camera_pose(self, context: Context):
@@ -137,7 +150,11 @@ class FiniteStateMachine(LeafSystem):
         - next camera pose
         """
         current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
-        next_camera_pose = self.camera_pos_list[current_cam_ind]
+        next_camera_pose = self._camera_pos_list[current_cam_ind]
+        if debug_messages == True: 
+            print("within get_camera_pose function check ______")
+            print("current_cam_ind:", current_cam_ind)
+            print("next_camera_pose:", next_camera_pose)
         return next_camera_pose
         
 
@@ -191,6 +208,8 @@ class FiniteStateMachine(LeafSystem):
     def _execute_finite_state_machine(self, context: Context, state: State):
         complete_flag = int(context.get_discrete_state(self._completed).get_value())
         if complete_flag == 0:
+            next_camera_pose = self._get_camera_pose(context)
+            state.set_value(self._next_camera_pose, next_camera_pose)
             check_do_rrt = self._update_do_rrt(context)
             state.set_value(self._do_rrt, [check_do_rrt])
             check_banana = self._update_check_banana(context)
@@ -198,8 +217,6 @@ class FiniteStateMachine(LeafSystem):
             grasp_banana = self._update_grasp_banana(context)
             state.set_value(self._grasp_banana, [grasp_banana])
             self._update_camera_ind(context, state)
-            next_camera_pose = self._get_camera_pose(context)
-            state.set_value(self._next_camera_pose, next_camera_pose)
             completed = self._update_completion(context)
             state.set_value(self._completed, [completed])
 

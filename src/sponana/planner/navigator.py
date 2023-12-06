@@ -83,9 +83,11 @@ class Navigator(LeafSystem):
         do_rrt = self.get_do_rrt_input_port().Eval(context)
         if do_rrt == 1:
             current_position = self.get_spot_state_input_port().Eval(context)[:3]
+            print("in navigator plan trajectory: print current position:", current_position)
             # FIXME: hard code the goal for now
             target_position = self.get_target_position_input_port().Eval(context)
             # target_position = np.array([-2, -2, 3.15001955e00]) #fixed target position test
+            print("in navigator plan trajectory: print target position:", target_position)
             spot_problem = SpotProblem(
                 current_position, target_position, self._collision_check
             )
