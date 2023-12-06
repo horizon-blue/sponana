@@ -72,6 +72,12 @@ class Navigator(LeafSystem):
     def get_do_rrt_input_port(self):
         return self.get_input_port(2)
 
+    def get_base_position_output_port(self):
+        return self.get_output_port(0)
+
+    def get_done_rrt_output_port(self):
+        return self.get_output_port(1)
+
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
         do_rrt = self.get_do_rrt_input_port().Eval(context)
