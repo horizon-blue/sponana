@@ -46,7 +46,7 @@ class Navigator(LeafSystem):
         # Periodically update the state to move to the next position in the
         # trajectory
         self.DeclarePeriodicDiscreteUpdateEvent(
-            period_sec=time_step, offset_sec=0.0, update=self._update
+            period_sec=time_step, offset_sec=2, update=self._update
         )
 
         # Input ports
