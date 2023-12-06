@@ -58,7 +58,7 @@ class Navigator(LeafSystem):
         self._init_internal_model(scenario_file)
 
         #output port for when Navigator is done
-        self.DeclareVectorOutputPort("done_rrt",self._done_rrt)
+        self.DeclareVectorOutputPort("done_rrt", 1, self._get_done_rrt)
 
         # kick off the planner
         self.DeclareInitializationDiscreteUpdateEvent(self._plan_trajectory)
@@ -119,6 +119,11 @@ class Navigator(LeafSystem):
         )
         # check for collision pairs
         return _spot_in_collision(self._plant, self._scene_graph, self._station_context)
+
+    def _get_done_rrt(self, context, output):
+        done_rrt = self._done_rrt.Eval(context)
+        output.SetFromVector(done_rrt)
+
 
     def _init_internal_model(self, scenario_file: str):
         """Initialize the planner's own internal model of the environment and use it for collision checking."""

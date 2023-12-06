@@ -302,7 +302,7 @@ model_drivers:
 
             builder.Connect(
             #grasper.GetOutputPort("banana_grasped"),
-            0
+            0, 
             fsm.get_has_banana_input_port())
 
             #output ports
