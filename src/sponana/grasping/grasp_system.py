@@ -106,30 +106,20 @@ class Grasper(LeafSystem):
             "banana_pose", AbstractValue.Make(RigidTransform())
         )
 
-        self.DeclareVectorOutputPort("arm_position", 7, self.OutputArmPosition)
-        self._arm_position = None  # Value returned by OutputArmPosition
-        self._gripper_angle = (
-            None  # Last value of _arm_position is overwritten with this
-        )
+        self._arm_position = self.DeclareDiscreteState(7)
+        self.DeclareStateOutputPort("arm_position", self._arm_position)
         # -1.4 = open gripper
 
         # Additional ports to communicate with FSM
         self.DeclareVectorInputPort("do_grasp", 1)
-        self.DeclareVectorOutputPort("banana_grasped", 1, self._get_banana_grasped)
+        self._banana_grasped = self.DeclareDiscreteState(1)
+        self.DeclareStateOutputPort("banana_grasped", self._banana_grasped)
 
         self.DeclareInitializationDiscreteUpdateEvent(self._initialize)
 
         # MultibodyPlant in the robot's head, used for IK and FK
         self.plant = None
         self.plant_context = None
-
-    def OutputArmPosition(self, context: Context, output):
-        if self._arm_position is None:  # Haven't started yet
-            return self.get_spot_state_input_port().Eval(context)[3:10]
-
-        arm_pos = self._arm_position.copy()
-        arm_pos[-1] = self._gripper_angle
-        output.SetFromVector(arm_pos)
 
     def _get_banana_grasped(self, context: Context, output):
         # FIXME: this is hard coded to false for now
@@ -173,17 +163,12 @@ class Grasper(LeafSystem):
             context.get_time() < self.get_reset_time_input_port().Eval(context)[0]
             and self._last_reset == -np.inf
         ):
-            self._arm_position = self.get_spot_state_input_port().Eval(context)[3:10]
-            self._gripper_angle = self._arm_position[-1]
+            arm_position = self.get_spot_state_input_port().Eval(context)[3:10]
+            state.set_value(self._arm_position, arm_position)
             return
 
         if self.verbose:
             print("Initializing.")
-
-        # Open gripper.
-        self._gripper_angle = (
-            -1.4
-        )  # Last value of _arm_position is overwritten with this
 
         banana_pose = self.get_banana_pose_input_port().Eval(context)
 
@@ -232,6 +217,9 @@ class Grasper(LeafSystem):
             # Haven't started yet
             return
 
+        # Open gripper.
+        gripper_angle = -1.4  # Last value of _arm_position is overwritten with this
+
         # Gripper pose to go to now
         T = context.get_time() - self._last_reset
         X_WGnow = RigidTransform(self.traj_X_G.value(T))
@@ -243,7 +231,6 @@ class Grasper(LeafSystem):
                 self.times["postpick"] - self.times["pick"]
             )
             gripper_angle = -1.4 * (1 - time_fraction)
-            self._gripper_angle = gripper_angle
 
             # print("X_WGnow = ", X_WGnow)
             X_WGnow = RigidTransform(self.traj_X_G.value(self.times["pick"]))
@@ -261,7 +248,8 @@ class Grasper(LeafSystem):
             print(f"IK failed at T={T}")
         # print(f"arm_position = {arm_position}")
         # Move the arm to the next position
-        self._arm_position = arm_position
+        arm_position[-1] = gripper_angle
+        state.set_value(self._arm_position, arm_position)
 
 
 #####
