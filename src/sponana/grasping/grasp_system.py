@@ -115,6 +115,10 @@ class Grasper(LeafSystem):
         self._banana_grasped = self.DeclareDiscreteState(1)
         self.DeclareStateOutputPort("banana_grasped", self._banana_grasped)
 
+        # Open gripper.
+        self._gripper_angle = (
+            -1.4
+        )  # Last value of _arm_position is overwritten with this
         self.DeclareInitializationDiscreteUpdateEvent(self._initialize)
 
         # MultibodyPlant in the robot's head, used for IK and FK
@@ -222,9 +226,6 @@ class Grasper(LeafSystem):
             # Haven't started yet
             return
 
-        # Open gripper.
-        gripper_angle = -1.4  # Last value of _arm_position is overwritten with this
-
         # Gripper pose to go to now
         T = context.get_time() - self._last_reset
         X_WGnow = RigidTransform(self.traj_X_G.value(T))
@@ -235,7 +236,7 @@ class Grasper(LeafSystem):
             time_fraction = (T - self.times["pick"]) / (
                 self.times["postpick"] - self.times["pick"]
             )
-            gripper_angle = -1.4 * (1 - time_fraction)
+            self._gripper_angle = -1.4 * (1 - time_fraction)
 
             # print("X_WGnow = ", X_WGnow)
             X_WGnow = RigidTransform(self.traj_X_G.value(self.times["pick"]))
@@ -253,7 +254,7 @@ class Grasper(LeafSystem):
             print(f"IK failed at T={T}")
         # print(f"arm_position = {arm_position}")
         # Move the arm to the next position
-        arm_position[-1] = gripper_angle
+        arm_position[-1] = self._gripper_angle
         state.set_value(self._arm_position, arm_position)
 
         #  FIXME: this is hard coded to false for now
