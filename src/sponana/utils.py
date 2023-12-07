@@ -5,9 +5,8 @@ import numpy as np
 import pydot
 from IPython.display import SVG, display
 from manipulation import ConfigureParser
-from pydrake.all import Context, Diagram, Meshcat, PackageMap, Parser, Simulator
 from manipulation.station import MakeHardwareStation
-from pathlib import Path
+from pydrake.all import Context, Diagram, Meshcat, PackageMap, Parser, Simulator
 
 sponana_dir = Path(__file__).parent.absolute()
 
@@ -23,21 +22,25 @@ def configure_parser(parser: Parser):
         package_name="spot_description",
         params=PackageMap.RemoteParams(
             urls=[
-                f"https://github.com/bdaiinstitute/spot_ros2/archive/d429947a1df842ec38f8c6099dde9501945090d6.tar.gz"
+                f"https://github.com/wrangel-bdai/spot_ros2/archive/20965ef7bba98598ee10878c7b54e6ef28a300c6.tar.gz"
             ],
-            sha256=("e4dd471be4e7e822a12afcfd6a94ce7ecbb39e2d4ea406779a96e146a607bf53"),
-            strip_prefix="spot_ros2-d429947a1df842ec38f8c6099dde9501945090d6/spot_description/",
+            sha256=("20a4f12896b04cc73e186cf876bf2c7e905ee88f8add8ea51bf52dfc888674b4"),
+            strip_prefix="spot_ros2-20965ef7bba98598ee10878c7b54e6ef28a300c6/spot_description/",
         ),
     )
     # Add Sponana to the parser
     models_path = Path(__file__).parent / "models"
     parser.package_map().Add("sponana", str(models_path.resolve()))
 
+
 def MakeSponanaHardwareStation(scenario, meshcat):
     return MakeHardwareStation(
-        scenario, meshcat, parser_preload_callback=configure_parser,
-        package_xmls=[str(sponana_dir / "models/package.xml")]
+        scenario,
+        meshcat,
+        parser_preload_callback=configure_parser,
+        package_xmls=[str(sponana_dir / "models/package.xml")],
     )
+
 
 def visualize_diagram(diagram: Diagram, max_depth: Optional[int] = None):
     display(
