@@ -8,7 +8,7 @@ directives:
       parent: world
       child: table_top0::table_top_center
       X_PC:
-        translation: [0, 0, 0.2]
+        translation: [0, -4.0, 0.2]
 
   - add_model:
       name: table_top1
@@ -18,7 +18,7 @@ directives:
       parent: world
       child: table_top1::table_top_center
       X_PC:
-        translation: [0, 4.0, 0.2]
+        translation: [0, 0, 0.2]
 
   - add_model:
       name: table_top2
@@ -28,7 +28,7 @@ directives:
       parent: world
       child: table_top2::table_top_center
       X_PC:
-        translation: [0, -4.0, 0.2]
+        translation: [0, 4.0, 0.2]
 
   # Walls and floor
   - add_model:
@@ -90,3 +90,43 @@ directives:
       child: back_wall::back_wall_center
       X_PC:
         translation: [-2.0, 0.0, 0.0]
+
+  - add_model:
+      name: front_wall_0
+      file: package://sponana/front_wall.sdf
+
+  - add_weld:
+      parent: world
+      child: front_wall_0::front_wall_center
+      X_PC:
+        translation: [2.0, -4.0, 0.0]
+
+  - add_model:
+      name: front_wall_1
+      file: package://sponana/front_wall.sdf
+
+  - add_weld:
+      parent: world
+      child: front_wall_1::front_wall_center
+      X_PC:
+        translation: [2.0, 0.0, 0.0]
+
+  - add_model:
+      name: front_wall_2
+      file: package://sponana/front_wall.sdf
+
+  - add_weld:
+      parent: world
+      child: front_wall_2::front_wall_center
+      X_PC:
+        translation: [2.0, 4.0, 0.0]
+
+  - add_model:
+      name: starting_area
+      file: package://sponana/starting_area.sdf
+
+  - add_weld:
+      parent: world
+      child: starting_area::starting_area_center
+      X_PC:
+        translation: [3.0, 7.0, 0]

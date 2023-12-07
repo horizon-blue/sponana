@@ -76,8 +76,8 @@ def clutter_gen(
     add_fixed_cameras=True,
     table_specs=[
         TableSceneSpec(has_banana=False),
-        TableSceneSpec(has_banana=True),
         TableSceneSpec(has_banana=False),
+        TableSceneSpec(has_banana=True),
     ],
     use_teleop=True,
 ):
@@ -163,8 +163,9 @@ directives:
         arm_sh1: [-3.1]
         arm_el0: [3.1]
         # initial position
-        base_x: [1.0]
-        base_rz: [3.14]
+        base_x: [3.0]
+        base_y: [7.0]
+        base_rz: [-1.57]
 
 - add_model:
     name: spot_camera
