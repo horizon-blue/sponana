@@ -17,7 +17,6 @@ def make_spot_controller(
     spot_plant: MultibodyPlant,
     use_teleop: bool = True,
     meshcat: Optional[Meshcat] = None,
-    enable_arm_ik: bool = True,
 ) -> Diagram:
     """
     Create and return a Spot controller that output the state configuration
@@ -81,11 +80,10 @@ def make_spot_controller(
         #     spot_arm_ik_controller.get_base_position_input_port(),
         # )
 
-        if not enable_arm_ik:
-            builder.Connect(
-                teleop.get_output_port(),
-                position_combiner.get_arm_position_input_port(),
-            )
+        builder.Connect(
+            teleop.get_output_port(),
+            position_combiner.get_arm_position_input_port(),
+        )
 
     # Export I/O ports
     if not use_teleop:
