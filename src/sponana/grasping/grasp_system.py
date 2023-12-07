@@ -33,7 +33,7 @@ from pydrake.all import (
 
 import sponana.grasping.grasping_models as grasping_models
 import sponana.utils
-from sponana.controller.inverse_kinematics import solve_ik
+from sponana.controller.inverse_kinematics import q_nominal_arm, solve_ik
 from sponana.grasping.grasp_generator import (
     BananaSystem,
     GenerateAntipodalGraspCandidate,
@@ -121,18 +121,14 @@ class Grasper(LeafSystem):
         self.plant = None
         self.plant_context = None
 
-    def _get_banana_grasped(self, context: Context, output):
-        # FIXME: this is hard coded to false for now
-        output.SetFromVector([0])
-
     def get_reset_time_input_port(self):
-        return self.get_input_port(0)
+        return self.GetInputPort("reset_time")
 
     def get_spot_state_input_port(self):
-        return self.get_input_port(1)
+        return self.GetInputPort("spot_state")
 
     def get_banana_pose_input_port(self):
-        return self.get_input_port(2)
+        return self.GetInputPort("banana_pose")
 
     def get_do_grasp_input_port(self):
         return self.GetInputPort("do_grasp")
@@ -163,8 +159,7 @@ class Grasper(LeafSystem):
             context.get_time() < self.get_reset_time_input_port().Eval(context)[0]
             and self._last_reset == -np.inf
         ):
-            arm_position = self.get_spot_state_input_port().Eval(context)[3:10]
-            state.set_value(self._arm_position, arm_position)
+            state.set_value(self._arm_position, q_nominal_arm)
             return
 
         if self.verbose:
@@ -204,7 +199,17 @@ class Grasper(LeafSystem):
         # Set the output port for the first time
         self._update(context, state)
 
+    def _should_grasp(self, context: Context):
+        if not self.get_do_grasp_input_port().HasValue(context):
+            # if this port is not connected, then we should always grasp
+            # this allows us to test grasping without the FSM
+            return True
+        return bool(self.get_do_grasp_input_port().Eval(context)[0])
+
     def _update(self, context: Context, state: State):
+        if not self._should_grasp(context):
+            return
+
         newest_reset_time = self.get_reset_time_input_port().Eval(context)[0]
         reset_already_done = newest_reset_time <= self._last_reset
         if (not reset_already_done) and newest_reset_time < context.get_time():
@@ -250,6 +255,9 @@ class Grasper(LeafSystem):
         # Move the arm to the next position
         arm_position[-1] = gripper_angle
         state.set_value(self._arm_position, arm_position)
+
+        #  FIXME: this is hard coded to false for now
+        state.set_value(self._banana_grasped, [0])
 
 
 #####
