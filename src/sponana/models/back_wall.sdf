@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <sdf version="1.7">
 
-  <model name="table_top6">
-    <link name="table_top6_link">
+  <model name="back_wall">
+    <link name="back_wall_link">
       <inertial>
         <mass>18.70</mass>
         <inertia>
@@ -14,11 +14,11 @@
           <izz>1.2</izz>
         </inertia>
       </inertial>
-    <visual name="bottom">
-        <pose>0.0 1.5 0.445 1.5708 0 0</pose>
+      <visual name="bottom">
+        <pose>0.0 0 0 0 0 0</pose>
         <geometry>
           <box>
-            <size>2.49 2.63 0.015</size>
+            <size>0.015 12.0 1.4</size>
           </box>
         </geometry>
         <material>
@@ -26,20 +26,20 @@
         </material>
       </visual>
       <collision name="bottom">
-        <pose>0.0 1.5 0.445 1.5708 0 0</pose>
+        <pose>0.0 0 0 0 0 0</pose>
         <geometry>
           <box>
-            <size>2.49 2.63 0.015</size>
+            <size>0.015 12.0 1.4</size>
           </box>
         </geometry>
         <drake:proximity_properties>
-          <drake:compliant_hydroelastic/>
+          <drake:compliant_hydroelastic />
           <drake:hydroelastic_modulus>1.0e6</drake:hydroelastic_modulus>
         </drake:proximity_properties>
       </collision>
     </link>
-    <frame name="table_top6_center">
-      <pose relative_to="table_top6_link">0 0 0.47 0 0 0</pose>
+    <frame name="back_wall_center">
+      <pose relative_to="back_wall_link">0 0 -0.7 0 0 0</pose>
     </frame>
   </model>
 </sdf>

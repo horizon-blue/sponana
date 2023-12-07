@@ -18,7 +18,7 @@ directives:
       parent: world
       child: table_top1::table_top_center
       X_PC:
-        translation: [0, 2.0, 0.2]
+        translation: [0, 4.0, 0.2]
 
   - add_model:
       name: table_top2
@@ -28,40 +28,48 @@ directives:
       parent: world
       child: table_top2::table_top_center
       X_PC:
-        translation: [0, -2.0, 0.2]
+        translation: [0, -4.0, 0.2]
 
   # Walls and floor
   - add_model:
-      name: table_top4
-      file: package://sponana/table_top4.sdf
+      name: side_wall_0
+      file: package://sponana/side_wall.sdf
 
   - add_weld:
       parent: world
-      child: table_top4::table_top4_center
+      child: side_wall_0::side_wall_center
+      X_PC:
+        translation: [-2.0, -6.0, 0.0]
 
   - add_model:
-      name: table_top5
-      file: package://sponana/table_top5.sdf
+      name: side_wall_1
+      file: package://sponana/side_wall.sdf
 
   - add_weld:
       parent: world
-      child: table_top5::table_top5_center
+      child: side_wall_1::side_wall_center
+      X_PC:
+        translation: [-2.0, -2.0, 0.0]
 
   - add_model:
-      name: table_top6
-      file: package://sponana/table_top6.sdf
+      name: side_wall_2
+      file: package://sponana/side_wall.sdf
 
   - add_weld:
       parent: world
-      child: table_top6::table_top6_center
+      child: side_wall_2::side_wall_center
+      X_PC:
+        translation: [-2.0, 2.0, 0.0]
 
   - add_model:
-      name: table_top7
-      file: package://sponana/table_top7.sdf
+      name: side_wall_3
+      file: package://sponana/side_wall.sdf
 
   - add_weld:
       parent: world
-      child: table_top7::table_top7_center
+      child: side_wall_3::side_wall_center
+      X_PC:
+        translation: [-2.0, 6.0, 0.0]
 
   - add_model:
       name: floor
@@ -70,11 +78,15 @@ directives:
   - add_weld:
       parent: world
       child: floor::platform_center
+      X_PC:
+        translation: [1.0, 0, 0]
 
   - add_model:
       name: back_wall
-      file: package://sponana/table_top9.sdf
+      file: package://sponana/back_wall.sdf
 
   - add_weld:
       parent: world
-      child: back_wall::table_top9_center
+      child: back_wall::back_wall_center
+      X_PC:
+        translation: [-2.0, 0.0, 0.0]

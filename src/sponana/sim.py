@@ -128,7 +128,7 @@ directives:
     parent: world
     child: camera0::base
     X_PC:
-        translation: [0, 1.75, 1.0]
+        translation: [0, 3.75, 1.0]
         rotation: !Rpy { deg: [-75, 0, 0] }
 """
 
@@ -465,9 +465,9 @@ def cps_to_pose(cps, table_idx):
         extra_rot = RotationMatrix.MakeYRotation(np.pi / 2)
 
     if table_idx == 0:
-        y = y + 2.0
+        y = y + 4.0
     elif table_idx == 2:
-        y = y - 2.0
+        y = y - 4.0
 
     return RigidTransform(RotationMatrix.MakeZRotation(theta) @ extra_rot, [x, y, 0.4])
 
