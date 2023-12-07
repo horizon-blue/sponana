@@ -1,4 +1,5 @@
 import copy
+import logging
 import math
 import random
 from dataclasses import dataclass
@@ -45,6 +46,8 @@ from sponana.perception import (
 )
 from sponana.planner import Navigator
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class TableSceneSpec:
@@ -85,7 +88,7 @@ def clutter_gen(
 
     # Randomly generate specifications for the tables if any are incomplete
     table_specs = concretize_table_specs(table_specs, rng)
-    print(table_specs)
+    logger.debug(table_specs)
 
     scenario_data = """
 cameras:
@@ -350,8 +353,10 @@ model_drivers:
     banana_table_idx = next(
         (i for i, spec in enumerate(table_specs) if spec.has_banana), None
     )
-    print("banana_table_idx", banana_table_idx)
-    print("spec[banana_table_idx].has_banana", table_specs[banana_table_idx].has_banana)
+    logger.debug(f"banana_table_idx: {banana_table_idx}")
+    logger.debug(
+        f"spec[banana_table_idx].has_banana: {table_specs[banana_table_idx].has_banana}"
+    )
     banana_pose = cps_to_pose(
         table_specs[banana_table_idx].banana_contact_params, banana_table_idx
     )
@@ -441,29 +446,29 @@ def generate_random_with_min_dist(rng, x_upper_range, y_upper_range, num_element
     y_points = []
     # max x collisions of the ycb objects: 0.158000 (cracker), 0.086700 (sugar box), 0.031850 radius (tomato soup can), 0.090000 (mustard bottle), 0.083200 (gelatin box), 0.095600 (SPAM)
     x_sample = np.arange(-x_upper_range, x_upper_range, 0.15)
-    print("x_sample", x_sample)
+    logger.debug(f"x_sample: {x_sample}")
     # max y collisions of the ycb objects: 0.207400 (cracker), 0.170300 (sugar box), 0.099900 length (tomato soup can), 0.160300 (mustard bottle), 0.067100 (gelatin box), 0.077500 (SPAM)
     y_sample = np.arange(-y_upper_range, y_upper_range, 0.20)
-    print("y_sample", y_sample)
+    logger.debug(f"y_sample: {y_sample}")
     while len(x_points) < num_elements:
         poss_point_x = rng.choice(x_sample)
         poss_point_y = rng.choice(y_sample)
         if distance_thres_point(poss_point_x, poss_point_y, x_points, y_points, 0.15):
             x_points.append(poss_point_x)
             y_points.append(poss_point_y)
-            print(
-                "appended:", "x_points_append:", x_points, "y_points_append:", y_points
+            logger.debug(
+                f"appended: x_points_append: {x_points}, y_points_append: {y_points}"
             )
     return x_points, y_points
 
 
 def distance_thres_point(poss_point_x, poss_point_y, x_points, y_points, r_threshold):
-    # print("poss_point_x", poss_point_x, "poss_point_y", poss_point_y)
+    # logger.debug(f"poss_point_x: {poss_point_x}, poss_point_y: {poss_point_y}")
     for ind in range(len(x_points)):
         dist = math.hypot(
             abs(poss_point_x - x_points[ind]), abs(poss_point_y - y_points[ind])
         )
-        print("dist", dist)
+        logger.debug(f"dist: {dist}")
         if dist < r_threshold:
             return False
     return True
