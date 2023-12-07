@@ -24,6 +24,7 @@ class Navigator(LeafSystem):
         time_step: float = 0.1,
         meshcat: Optional[Meshcat] = None,
         scenario_file: str = default_scenario,
+        initial_position: np.ndarray = np.zeros(3),
     ):
         super().__init__()
         self._meshcat = meshcat
@@ -42,7 +43,7 @@ class Navigator(LeafSystem):
         # trajectory
         self._trajectory = None
         self.DeclarePeriodicDiscreteUpdateEvent(
-            period_sec=time_step, offset_sec=2.0, update=self._update
+            period_sec=time_step, offset_sec=0.0, update=self._update
         )
 
         # Input ports
@@ -50,8 +51,9 @@ class Navigator(LeafSystem):
         self.DeclareVectorInputPort("target_position", 3)
         self.DeclareVectorInputPort("do_rrt", 1)
 
-        # # kick off the planner
-        # self.DeclareInitializationDiscreteUpdateEvent(self._plan_trajectory)
+        # Initialize states
+        self._initial_position = initial_position
+        self.DeclareInitializationDiscreteUpdateEvent(self._initialize_states)
 
     def get_spot_state_input_port(self):
         return self.GetInputPort("spot_state")
@@ -68,9 +70,17 @@ class Navigator(LeafSystem):
     def get_done_rrt_output_port(self):
         return self.GetOutputPort("done_rrt")
 
+    def _get_current_position(self, context: Context):
+        return self.get_spot_state_input_port().Eval(context)[:3]
+
+    def _initialize_states(self, context: Context, state: State):
+        state.set_value(self._base_position, self._initial_position)
+        state.set_value(self._done_rrt, [0])
+        state.set_value(self._traj_idx, [0])
+
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
-        current_position = self.get_spot_state_input_port().Eval(context)[:3]
+        current_position = self._get_current_position(context)
         print(
             "in navigator plan trajectory: print current position:",
             current_position,
@@ -80,7 +90,7 @@ class Navigator(LeafSystem):
         spot_problem = SpotProblem(
             current_position, target_position, self._collision_check
         )
-        trajectory = rrt_planning(spot_problem, max_iterations=1000)
+        trajectory = rrt_planning(spot_problem, max_iterations=10000)
 
         if self._meshcat:
             visualize_path(trajectory, self._meshcat)
@@ -89,7 +99,6 @@ class Navigator(LeafSystem):
         # initial state
         state.set_value(self._base_position, trajectory[0])
         state.set_value(self._traj_idx, [0])
-        state.set_value(self._done_rrt, [1])
 
     def _update(self, context: Context, state: State):
         do_rrt = self.get_do_rrt_input_port().Eval(context)
@@ -103,6 +112,7 @@ class Navigator(LeafSystem):
             idx = last_idx + 1
             state.set_value(self._traj_idx, [idx])
             state.set_value(self._base_position, self._trajectory[idx])
+            state.set_value(self._done_rrt, [0])
         else:
             state.set_value(self._done_rrt, [1])
 

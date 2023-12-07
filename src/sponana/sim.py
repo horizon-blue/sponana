@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from manipulation.scenarios import ycb
-from manipulation.station import MakeHardwareStation, load_scenario
+from manipulation.station import load_scenario
 from pydrake.all import (
     ConstantVectorSource,
     DiagramBuilder,
@@ -63,7 +63,7 @@ def clutter_gen(
         TableSceneSpec(has_banana=True),
     ],
     use_teleop=True,
-    starting_position=[3.0, 7.0, -1.57],
+    starting_position=np.array([3.0, 7.0, -1.57]),
 ):
     """
     Generate a Sponana environment consistent with the provided `table_specs`.
@@ -179,7 +179,9 @@ model_drivers:
 
     if not use_teleop:
         # Additional systems for autonomous mode
-        navigator = builder.AddNamedSystem("navigator", Navigator(meshcat=meshcat))
+        navigator = builder.AddNamedSystem(
+            "navigator", Navigator(meshcat=meshcat, initial_position=starting_position)
+        )
         grasper = builder.AddNamedSystem("grasper", Grasper())
         fsm = builder.AddNamedSystem(
             "finite_state_machine",

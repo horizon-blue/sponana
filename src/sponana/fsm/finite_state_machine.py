@@ -57,11 +57,7 @@ class FiniteStateMachine(LeafSystem):
             offset_sec=0.0,
             update=self._execute_finite_state_machine,
         )
-
-        # kick off the FSM
-        self.DeclareInitializationDiscreteUpdateEvent(
-            self._execute_finite_state_machine
-        )
+        self.DeclareInitializationDiscreteUpdateEvent(self._initialize_state)
 
     def get_camera_reached_input_port(self):
         return self.GetInputPort("camera_reached")
@@ -83,6 +79,12 @@ class FiniteStateMachine(LeafSystem):
 
     def get_target_base_position_output_port(self):
         return self.GetOutputPort("target_base_position")
+
+    def _initialize_state(self, context: Context, state: State):
+        state.set_value(self._next_camera_pose, self._camera_pos_list[0])
+        state.set_value(self._do_rrt, [1])
+        state.set_value(self._check_banana, [0])
+        state.set_value(self._grasp_banana, [0])
 
     def _update_do_rrt(self, context: Context):
         """
