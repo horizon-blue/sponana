@@ -1,22 +1,13 @@
 from typing import Optional
 
 import numpy as np
-from manipulation.meshcat_utils import AddMeshcatTriad
 from manipulation.station import load_scenario
-from pydrake.all import (
-    Context,
-    LeafSystem,
-    Meshcat,
-    MultibodyPlant,
-    RigidTransform,
-    RotationMatrix,
-    SceneGraph,
-    State,
-)
+from pydrake.all import Context, LeafSystem, Meshcat, MultibodyPlant, SceneGraph, State
 
 from ..controller import q_nominal_arm
 from ..utils import MakeSponanaHardwareStation, set_spot_positions
 from .rrt import ConfigType, SpotProblem, rrt_planning
+from .utils import visualize_path
 
 default_scenario = "package://sponana/scenes/three_rooms_with_tables.dmd.yaml"
 
@@ -92,15 +83,7 @@ class Navigator(LeafSystem):
         trajectory = rrt_planning(spot_problem, max_iterations=1000)
 
         if self._meshcat:
-            for t, pose in enumerate(trajectory):
-                # convert position to pose for plotting
-                pose = RigidTransform(
-                    RotationMatrix.MakeZRotation(pose[2]), [*pose[:2], 0.0]
-                )
-                opacity = 0.2 if t > 0 and t < len(trajectory) - 1 else 1.0
-                AddMeshcatTriad(
-                    self._meshcat, f"trajectory_{t}", X_PT=pose, opacity=opacity
-                )
+            visualize_path(trajectory, self._meshcat)
 
         self._trajectory = trajectory
         # initial state
