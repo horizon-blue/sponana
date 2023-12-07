@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 class TableSceneSpec:
     """
     Description of the contents of one table top.  `None` values will be filled in via random generation
-    in `clutter_gen`.
+    in `create_and_run_simulation`.
 
     - n_objects is the number of non-banana objects.
     - object_type_indices is a list of indices into `manipulation.scenarios.ycb`.
@@ -51,7 +51,7 @@ class TableSceneSpec:
     object_contact_params: list = None
 
 
-def clutter_gen(
+def create_and_run_simulation(
     meshcat,
     rng,
     add_debug_logger=False,
@@ -246,6 +246,10 @@ model_drivers:
             banana_spotter.get_found_banana_output_port(),
             fsm.get_see_banana_input_port(),
         )
+        builder.Connect(
+            banana_spotter.get_perception_completed_output_port(),
+            fsm.get_perception_completed_input_port()
+        )
 
         # Grasper (banana pose -> gripper joint positions)
         builder.Connect(
@@ -354,7 +358,10 @@ model_drivers:
     return simulator, diagram
 
 
+###################################
 ### Utils for object generation ###
+###################################
+
 def concretize_table_specs(table_specs, rng):
     """
     Fill in `None` values in a list of `TableSceneSpec`s via random generation.

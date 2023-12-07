@@ -46,6 +46,9 @@ class BananaSpotter(LeafSystem):
             AbstractValue.Make(RigidTransform())
         )
         self.DeclareStateOutputPort("banana_pose", self._banana_pose)
+        
+        self._perception_completed = self.DeclareDiscreteState(1)
+        self.DeclareStateOutputPort("perception_completed", self._perception_completed)
 
         self.DeclareInitializationUnrestrictedUpdateEvent(self._initialize_state)
         self.DeclarePeriodicUnrestrictedUpdateEvent(
@@ -78,10 +81,14 @@ class BananaSpotter(LeafSystem):
 
     def get_found_banana_output_port(self):
         return self.GetOutputPort("found_banana")
+    
+    def get_perception_completed_output_port(self):
+        return self.GetOutputPort("perception_completed")
 
     def _initialize_state(self, context: Context, state: State):
         state.get_mutable_discrete_state().set_value(self._found_banana, [0])
         self._set_banana_pose(state, RigidTransform())
+        state.get_mutable_discrete_state().set_value(self._perception_completed, [0])
 
     def _set_banana_pose(self, state: State, pose: RigidTransform):
         state.get_mutable_abstract_state(self._banana_pose).set_value(pose)
@@ -103,3 +110,6 @@ class BananaSpotter(LeafSystem):
         # TODO: fill in the actual perception module
         if self._plot_camera_input:
             plot_two_images_side_by_side(color_image.data, depth_image.data)
+
+        # perception is now complete.
+        state.get_mutable_discrete_state().set_value(self._perception_completed, [1])

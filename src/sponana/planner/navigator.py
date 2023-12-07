@@ -19,6 +19,17 @@ class Navigator(LeafSystem):
     base to navigate between rooms and tables.
 
     If a meshcat instance is provided, we can also visualize the trajectory.
+
+    Input ports:
+    - spot_state
+    - target_position. target spot base pose.
+    - do_rrt. = 1 when the navigator should move the spot to the target_position.
+        = 0 when the navigator should keep spot stationary (regardless of target_position).
+
+    Output ports:
+    - base_position. immediate next pose to move the spot to.
+    - done_rrt. = 1 when spot has successfully moved to target_position.
+        = 0 while in the process of moving there.
     """
 
     def __init__(
