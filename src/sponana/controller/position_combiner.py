@@ -20,10 +20,10 @@ class PositionCombiner(LeafSystem):
         self.DeclareVectorOutputPort("position", 10, self._combine_position)
 
     def get_base_position_input_port(self):
-        return self.get_input_port(0)
+        return self.GetInputPort("base_position")
 
     def get_arm_position_input_port(self):
-        return self.get_input_port(1)
+        return self.GetInputPort("arm_position")
 
     def _combine_position(self, context: Context, output: BasicVector):
         base_position = self.get_base_position_input_port().Eval(context)

@@ -31,7 +31,7 @@ class DummyGrasper(LeafSystem):
         )
 
     def get_do_grasp_input_port(self):
-        return self.get_input_port(0)
+        return self.GetInputPort("do_grasp")
 
     def _execute_grasp(self, context, state):
         do_grasp_flag = self.get_do_grasp_input_port().Eval(context)

@@ -51,23 +51,23 @@ class DebugLogger(LeafSystem):
         self.DeclarePerStepPublishEvent(self._log)
 
     def get_color_image_input_port(self):
-        return self.get_input_port(0)
+        return self.GetInputPort("color_image")
 
     def get_depth_image_input_port(self):
-        return self.get_input_port(1)
+        return self.GetInputPort("depth_image")
 
     def get_camera_pose_input_port(self):
-        return self.get_input_port(2)
+        return self.GetInputPort("camera_pose")
 
     def get_table_pose_input_port(self, table_index: int):
         assert table_index < self._num_tables
-        return self.get_input_port(3 + table_index)
+        return self.GetInputPort(f"table{table_index}_pose")
 
     def get_spot_state_input_port(self):
-        return self.get_input_port(3 + self._num_tables)
+        return self.GetInputPort("spot_state")
 
     def get_banana_pose_input_port(self):
-        return self.get_input_port(4 + self._num_tables)
+        return self.GetInputPort("banana_pose")
 
     def __del__(self):
         self._meshcat.DeleteButton(self._button)

@@ -39,10 +39,10 @@ class SpotArmIKController(LeafSystem):
         self._enabled = enabled
 
     def get_desired_pose_input_port(self):
-        return self.get_input_port(0)
+        return self.GetInputPort("desired_pose")
 
     def get_base_position_input_port(self):
-        return self.get_input_port(1)
+        return self.GetInputPort("base_position")
 
     def _solve_ik(self, context: Context, output: BasicVector):
         # because IK is a time-consuming process, we only want to do it once per second

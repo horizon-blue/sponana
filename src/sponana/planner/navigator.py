@@ -63,19 +63,19 @@ class Navigator(LeafSystem):
         # self.DeclareInitializationDiscreteUpdateEvent(self._plan_trajectory)
 
     def get_spot_state_input_port(self):
-        return self.get_input_port(0)
+        return self.GetInputPort("spot_state")
 
     def get_target_position_input_port(self):
-        return self.get_input_port(1)
+        return self.GetInputPort("target_position")
 
     def get_do_rrt_input_port(self):
-        return self.get_input_port(2)
+        return self.GetInputPort("do_rrt")
 
     def get_base_position_output_port(self):
-        return self.get_output_port(0)
+        return self.GetOutputPort("base_position")
 
     def get_done_rrt_output_port(self):
-        return self.get_output_port(1)
+        return self.GetOutputPort("done_rrt")
 
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""

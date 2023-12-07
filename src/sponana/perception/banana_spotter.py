@@ -42,19 +42,19 @@ class BananaSpotter(LeafSystem):
         self.DeclareVectorOutputPort("found_banana", 1, self._find_banana)
 
     def get_check_banana_input_port(self):
-        return self.get_input_port(0)
+        return self.GetInputPort("check_banana")
 
     def get_color_image_input_port(self):
-        return self.get_input_port(1)
+        return self.GetInputPort("color_image")
 
     def get_depth_image_input_port(self):
-        return self.get_input_port(2)
+        return self.GetInputPort("depth_image")
 
     def get_camera_pose_input_port(self):
-        return self.get_input_port(3)
+        return self.GetInputPort("camera_pose")
 
     def get_table_pose_input_port(self, table_index: int):
-        return self.get_input_port(4 + table_index)
+        return self.GetInputPort(f"table{table_index}_pose")
 
     def get_banana_pose_output_port(self):
         return self.GetOutputPort("banana_pose")
