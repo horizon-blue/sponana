@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
@@ -45,6 +46,11 @@ from sponana.grasping.grasp_generator import (
 # (the frame of the arm link in the Spot URDF)
 X_GA = RigidTransform(RollPitchYaw([1.57, 0, 1.57]), np.array([0.0, -0.08, 0.00]))
 
+@dataclass
+class GraspPlan:
+    traj_X_G: any = None
+    gripper_frames: list = None
+    times: list = None
 
 class Grasper(LeafSystem):
     """
@@ -65,13 +71,23 @@ class Grasper(LeafSystem):
     Input ports:
     - spot_state: The current state of the Spot robot.
     - banana_pose: The current pose of the banana.
-    - reset_time: The next time at which to reset the system (and read
-        in a new banana pose.)  (Ie. the time at which to begin
-        to control the arm to grasp the banana.)
+    - do_grasp: Should change from 0 to 1 at the moment we should begin
+        to attempt grasping.
 
     Output ports:
     - arm_position: The next arm position to go to. (Subsequent
         arm positions will be nearby.)
+    - banana_grasped: Is the banana grasped
+
+    State:
+    - init_time: The time at which grasping began.  (This, plus the time from
+        the context, allows the system to tell where in the grasping trajectory
+        it is.)
+    - grasp_plan: A GraspPlan object describing the trajectory for the spot
+        gripper.
+    - arm_position: The 7DOF arm position the grasp system has computed to move the
+        arm to, to accomplish the current point in the grasp plan.
+    - _banana_grasped: Bool, whether the banana has been grasped yet.
     """
 
     def __init__(
@@ -93,41 +109,50 @@ class Grasper(LeafSystem):
         self.meshcat = meshcat
         self.verbose = verbose
 
-        self.DeclarePeriodicDiscreteUpdateEvent(
-            period_sec=time_step, offset_sec=0.0, update=self._update
-        )
-
-        # Reset things once this time is passed.
-        self.DeclareVectorInputPort("reset_time", 1)
-        self._last_reset = -np.inf
-
-        self.DeclareVectorInputPort("spot_state", 20)
-        self.DeclareAbstractInputPort(
-            "banana_pose", AbstractValue.Make(RigidTransform())
-        )
-
-        self._arm_position = self.DeclareDiscreteState(7)
-        self.DeclareStateOutputPort("arm_position", self._arm_position)
-        # -1.4 = open gripper
-
-        # Additional ports to communicate with FSM
-        self.DeclareVectorInputPort("do_grasp", 1)
-        self._banana_grasped = self.DeclareDiscreteState(1)
-        self.DeclareStateOutputPort("banana_grasped", self._banana_grasped)
-
-        # Open gripper.
-        self._gripper_angle = (
-            -1.4
-        )  # Last value of _arm_position is overwritten with this
-        self.DeclareInitializationDiscreteUpdateEvent(self._initialize)
-
         # MultibodyPlant in the robot's head, used for IK and FK
         self.plant = None
         self.plant_context = None
 
-    def get_reset_time_input_port(self):
-        return self.GetInputPort("reset_time")
+        self.DeclareInitializationUnrestrictedUpdateEvent(self.first_initialization)
+        self.DeclarePeriodicUnrestrictedUpdateEvent(
+            period_sec=time_step, offset_sec=0.0, update=self._update
+        )
 
+        self.DeclareVectorInputPort("spot_state", 20)
+        self.DeclareVectorInputPort("do_grasp", 1)
+        self.DeclareAbstractInputPort(
+            "banana_pose", AbstractValue.Make(RigidTransform())
+        )
+
+        self._banana_grasped = self.DeclareDiscreteState(1)
+        self._arm_position = self.DeclareDiscreteState(7)
+        self._grasp_plan = self.DeclareAbstractState(AbstractValue.Make(GraspPlan()))
+        self._init_time = self.DeclareDiscreteState(1)
+
+        self.DeclareStateOutputPort("arm_position", self._arm_position)
+        self.DeclareStateOutputPort("banana_grasped", self._banana_grasped)
+
+    ### State setters and getters ###
+    def _set_banana_grasped(self, state, new_val):
+        state.get_mutable_discrete_state().set_value(self._banana_grasped, [new_val])
+
+    def _set_arm_position(self, state, new_val):
+        state.get_mutable_discrete_state().set_value(self._arm_position, new_val)
+
+    def _set_grasp_plan(self, state, new_val):
+        state.get_mutable_abstract_state(self._grasp_plan).set_value(new_val)
+
+    def _set_init_time(self, state, new_val):
+        state.get_mutable_discrete_state().set_value(self._init_time, [new_val])
+
+    def _get_init_time(self, state):
+        return state.get_mutable_discrete_state(self._init_time).value()
+    
+    def _get_grasp_plan(self, state):
+        return state.get_abstract_state(self._grasp_plan).get_value()
+
+    ### Input port getters ###
+    
     def get_spot_state_input_port(self):
         return self.GetInputPort("spot_state")
 
@@ -136,12 +161,16 @@ class Grasper(LeafSystem):
 
     def get_do_grasp_input_port(self):
         return self.GetInputPort("do_grasp")
+    
+    ### Output port getters ###
 
     def get_banana_grasped_output_port(self):
         return self.GetOutputPort("banana_grasped")
 
     def get_arm_position_output_port(self):
         return self.GetOutputPort("arm_position")
+
+    ### Input getters with preprocessing ###
 
     def get_current_arm_pose(self, context: Context):
         current_q = self.get_spot_state_input_port().Eval(context)[:10]
@@ -157,17 +186,35 @@ class Grasper(LeafSystem):
         X_WG = X_WA @ X_GA.inverse()
         return X_WG
 
-    def _initialize(self, context: Context, state: State):
-        # Wait until the reset time to do the first initialization...
-        if (
-            context.get_time() < self.get_reset_time_input_port().Eval(context)[0]
-            and self._last_reset == -np.inf
-        ):
-            state.set_value(self._arm_position, q_nominal_arm)
+    def _should_grasp(self, context: Context):
+        if not self.get_do_grasp_input_port().HasValue(context):
+            # if this port is not connected, then we should always grasp
+            # this allows us to test grasping without the FSM
+            return True
+        return bool(self.get_do_grasp_input_port().Eval(context)[0])
+
+    ### Initialization ###
+
+    def first_initialization(self, context: Context, state: State):
+        # Initialize state
+        current_arm_position = self.get_spot_state_input_port().Eval(context)[3:10]
+        self._set_banana_grasped(state, 0)
+        self._set_init_time(state, -np.inf)
+        self._set_arm_position(state, current_arm_position)
+        self._set_grasp_plan(state, GraspPlan())
+
+        # Begin grasping if `do_grasp` is true
+        self._maybe_begin_grasping(context, state)
+    
+    def _maybe_begin_grasping(self, context: Context, state: State):
+        if not self._should_grasp(context):
             return
 
         if self.verbose:
-            print("Initializing.")
+            print("Beginning grasp sequence.")
+
+        time = context.get_time()
+        self._set_init_time(state, time)
 
         banana_pose = self.get_banana_pose_input_port().Eval(context)
 
@@ -191,56 +238,59 @@ class Grasper(LeafSystem):
 
         # Plan a gripper trajectory
         X_WGinitial = self.get_current_gripper_pose(context)
-        gripper_frames, self.times = MakeGripperFrames(
+        gripper_frames, times = MakeGripperFrames(
             X_WGinitial, best_gripper_pose, 0.0
         )
         if self.verbose:
             print(gripper_frames)
-            print(self.times)
+            print(times)
 
-        self.traj_X_G = MakeGripperPoseTrajectories(gripper_frames, self.times)
+        traj_X_G = MakeGripperPoseTrajectories(gripper_frames, times)
+
+        # Set the grasp plan in the state
+        grasp_plan = GraspPlan(traj_X_G, gripper_frames, times)
+        self._set_grasp_plan(state, grasp_plan)
+
+        if self.verbose and self.meshcat is not None:
+            for t in np.linspace(0, 7, 70):
+                p = traj_X_G.value(t)
+                AddMeshcatTriad(
+                    self.meshcat, f"arm trajectory {t}",
+                    length=0.125, X_PT=p, opacity=0.25
+                )
 
         # Set the output port for the first time
         self._update(context, state)
 
-    def _should_grasp(self, context: Context):
-        if not self.get_do_grasp_input_port().HasValue(context):
-            # if this port is not connected, then we should always grasp
-            # this allows us to test grasping without the FSM
-            return True
-        return bool(self.get_do_grasp_input_port().Eval(context)[0])
+    ### Update ###
 
     def _update(self, context: Context, state: State):
         if not self._should_grasp(context):
             return
-
-        newest_reset_time = self.get_reset_time_input_port().Eval(context)[0]
-        reset_already_done = newest_reset_time <= self._last_reset
-        if (not reset_already_done) and newest_reset_time < context.get_time():
-            if self.verbose:
-                print("Re-initializing.")
-            self._last_reset = newest_reset_time
-            self._initialize(context, state)
-            return
-        elif self._last_reset == -np.inf:
-            # Haven't started yet
-            return
+        
+        if self._get_init_time(state) < 0:
+            # If we should grasp, and we haven't initialized -- initialize grasping!
+            self._maybe_begin_grasping(context, state)
+        
+        grasp_plan = self._get_grasp_plan(state)
+        times = grasp_plan.times
+        traj_X_G = grasp_plan.traj_X_G
 
         # Gripper pose to go to now
-        T = context.get_time() - self._last_reset
-        X_WGnow = RigidTransform(self.traj_X_G.value(T))
+        T = context.get_time() - self._get_init_time(state)
+        X_WGnow = RigidTransform(traj_X_G.value(T))
 
         # Gripper is currently closing
-        if self.times["pick"] < T < self.times["postpick"]:
-            # assert np.allclose(X_WGnow, self.get_current_gripper_pose(context))
-            time_fraction = (T - self.times["pick"]) / (
-                self.times["postpick"] - self.times["pick"]
+        if times["pick"] < T < times["postpick"]:
+            time_fraction = (T - times["pick"]) / (
+                times["postpick"] - times["pick"]
             )
-            self._gripper_angle = -1.4 * (1 - time_fraction)
-
-            # print("X_WGnow = ", X_WGnow)
-            X_WGnow = RigidTransform(self.traj_X_G.value(self.times["pick"]))
-            # print("X_WG at pick time = ", X_WGnow)
+            X_WGnow = RigidTransform(traj_X_G.value(times["pick"]))
+            _gripper_angle = -1.4 * (1 - time_fraction)
+        if T <= times["pick"]:
+            _gripper_angle = -1.4
+        if T >= times["postpick"]:
+            _gripper_angle = 0.
 
         # Run IK
         arm_position, ik_success = _run_ik(
@@ -252,14 +302,15 @@ class Grasper(LeafSystem):
         )
         if not ik_success and self.verbose:
             print(f"IK failed at T={T}")
-        # print(f"arm_position = {arm_position}")
+
         # Move the arm to the next position
-        arm_position[-1] = self._gripper_angle
-        state.set_value(self._arm_position, arm_position)
+        arm_position[-1] = _gripper_angle
+        self._set_arm_position(state, arm_position)
 
-        #  FIXME: this is hard coded to false for now
-        state.set_value(self._banana_grasped, [0])
+        if T > times["postpick2"]:
+            self._set_banana_grasped(state, 1)
 
+        return
 
 #####
 def _run_ik(X_WG, plant, plant_context, initial_q, arm_frame_name):

@@ -5,7 +5,7 @@ from .rrt_tools import ConfigType, RRT_tools
 
 
 def rrt_planning(
-    problem: Problem, max_iterations: int = 1000, prob_sample_q_goal: float = 0.05
+    problem: Problem, max_n_tries: int = 20, max_iterations_per_try: int = 250, prob_sample_q_goal: float = 0.05
 ) -> list[ConfigType]:
     """
     Input:
@@ -38,22 +38,28 @@ def rrt_planning(
             return path
 
     return None"""
-    rrt_tools = RRT_tools(problem)
-    q_goal = problem.goal
 
-    for _ in range(max_iterations):
-        q_sample = rrt_tools.sample_node_in_configuration_space()
-        if np.random.rand() < prob_sample_q_goal:
-            q_sample = q_goal
-        n_near = rrt_tools.find_nearest_node_in_RRT_graph(q_sample)
-        intermediates = rrt_tools.calc_intermediate_qs_wo_collision(
-            n_near.value, q_sample
-        )
+    for _ in range(max_n_tries):
+        rrt_tools = RRT_tools(problem)
+        q_goal = problem.goal
 
-        # iteratively add the new nodes to the tree to form a new edge
-        last_node = n_near
-        for q_val in intermediates:
-            last_node = rrt_tools.grow_rrt_tree(last_node, q_val)
-            if rrt_tools.node_reaches_goal(last_node):
-                return rrt_tools.backup_path_from_node(last_node)
+        # TODO: if this is not robut enough, we may want to expand
+        # the number of iterations per try, as we try more times and
+        # repeatedly fail to solve it in this number of RRT iterations
+        for _ in range(max_iterations_per_try):
+            q_sample = rrt_tools.sample_node_in_configuration_space()
+            if np.random.rand() < prob_sample_q_goal:
+                q_sample = q_goal
+            n_near = rrt_tools.find_nearest_node_in_RRT_graph(q_sample)
+            intermediates = rrt_tools.calc_intermediate_qs_wo_collision(
+                n_near.value, q_sample
+            )
+
+            # iteratively add the new nodes to the tree to form a new edge
+            last_node = n_near
+            for q_val in intermediates:
+                last_node = rrt_tools.grow_rrt_tree(last_node, q_val)
+                if rrt_tools.node_reaches_goal(last_node):
+                    return rrt_tools.backup_path_from_node(last_node)
+
     return []

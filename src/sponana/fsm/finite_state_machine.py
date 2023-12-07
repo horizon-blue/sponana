@@ -116,32 +116,48 @@ class FiniteStateMachine(LeafSystem):
     def _update(self, context: Context, state: State):
         current_action = self._get_current_action(context)
         if current_action == 1:
+            print("Moving...")
             # Moving from point A to point B
             if self._get_rrt_completed(context, state):
+                print("--> Moving completed.")
                 # Run perception.
                 self._set_current_action(context, state, 2)
+            else:
+                print("--> Moving not completed.")
             # else, continue executing the path
         elif current_action == 2:
             # Running perception
+            print("Running perception...")
             if self._perception_completed(context, state):
+                print("--> Perception completed.")
                 if self._banana_visible(context, state):
+                    print("----> Banana visible.")
                     # Grasp the banana
                     self._set_current_action(context, state, 3)
                 else:
+                    print("----> Banana not visible.")
                     still_not_done = self._increment_pose_idx(context, state)
                     if not still_not_done:
                         # Went to last position and still don't see anything.  Fail!
                         self._set_current_action(context, state, 5)
                     else:
                         self._set_current_action(context, state, 1) # Go to pose
+            else:
+                print("--> Perception not yet completed...")
             # else, continue running perception
         elif current_action == 3:
+            print("Running grasping...")
             # Grasping
             if self._grasp_completed(context, state):
+                print("--> Grasp completed.")
                 if self._has_banana(context, state):
+                    print("----> Banana obtained.")
                     self._set_current_action(context, state, 4) # Done!
                 else:
+                    print("----> Banana not obtained.")
                     self._set_current_action(context, state, 5) # Fail!
+            else:
+                print("--> Grasp not yet completed...")
         else:
             # Success or fail, but we're done either way
             assert current_action == 4 or current_action == 5

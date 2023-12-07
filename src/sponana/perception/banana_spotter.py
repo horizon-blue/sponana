@@ -6,6 +6,7 @@ from pydrake.all import (
     RigidTransform,
     State,
 )
+import numpy as np
 
 from ..utils import plot_two_images_side_by_side
 
@@ -17,10 +18,12 @@ class BananaSpotter(LeafSystem):
         num_tables: int = 0,
         time_step: float = 0.1,
         plot_camera_input: bool = False,
+        table_specs: list = None
     ):
         super().__init__()
         self._camera = camera
         self._plot_camera_input = plot_camera_input
+        self._table_specs = table_specs
 
         # Input ports
         self.DeclareVectorInputPort("check_banana", 1)
@@ -38,6 +41,8 @@ class BananaSpotter(LeafSystem):
             self.DeclareAbstractInputPort(
                 f"table{i}_pose", AbstractValue.Make(RigidTransform())
             )
+
+        self._at_end = False
 
         # Output ports
         self._found_banana = self.DeclareDiscreteState(1)
@@ -77,7 +82,7 @@ class BananaSpotter(LeafSystem):
         return self.GetInputPort(f"table{table_index}_pose")
 
     def get_banana_pose_output_port(self):
-        return self.GetOutputPort("banana_pose")
+        return self.GetOutputPort("baana_pose")
 
     def get_found_banana_output_port(self):
         return self.GetOutputPort("found_banana")
@@ -105,11 +110,34 @@ class BananaSpotter(LeafSystem):
         if not self._should_check_banana(context):
             return
 
+        # if not self._at_end:
+        if self._table_specs is not None:
+            table_poses = [
+                self.get_table_pose_input_port(i).Eval(context) for i in range(3)
+            ]
+            banana_table_idx = next((i for i, spec in enumerate(self._table_specs) if spec.has_banana), None)
+            banana_table_pose = table_poses[banana_table_idx]
+            camera_pose = self.get_camera_pose_input_port().Eval(context)
+
+            dist = np.linalg.norm(banana_table_pose.translation() - camera_pose.translation())
+
+            print(f"Dist to banana table = {dist}.")
+
+            if dist < 1.0:
+                state.get_mutable_discrete_state().set_value(self._found_banana, [1])
+                print("BananaSpotter::Set found banana to true.")
+
         color_image = self.get_color_image_input_port().Eval(context)
         depth_image = self.get_depth_image_input_port().Eval(context)
+        print("BananaSpotter::Got images.")
         # TODO: fill in the actual perception module
         if self._plot_camera_input:
             plot_two_images_side_by_side(color_image.data, depth_image.data)
+        print("BananaSpotter::Displayed images.")
 
-        # perception is now complete.
+            # self._at_end = True
+            # return
+
+        # if self._at_end and self.get_found_banana_output_port().Eval(context)[0] == 1:
         state.get_mutable_discrete_state().set_value(self._perception_completed, [1])
+        print("BananaSpotter::set perception_completed to true")

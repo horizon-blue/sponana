@@ -175,6 +175,7 @@ model_drivers:
             spot_camera,
             num_tables=len(table_pose_extractors),
             plot_camera_input=plot_camera_input,
+            table_specs=table_specs
         ),
     )
     # Banana pose (using cheat port -- placeholder for now)
@@ -187,7 +188,7 @@ model_drivers:
         navigator = builder.AddNamedSystem(
             "navigator", Navigator(meshcat=meshcat, initial_position=starting_position)
         )
-        grasper = builder.AddNamedSystem("grasper", Grasper())
+        grasper = builder.AddNamedSystem("grasper", Grasper(meshcat=meshcat, verbose=True))
         fsm = builder.AddNamedSystem(
             "finite_state_machine",
             FiniteStateMachine(
@@ -256,22 +257,17 @@ model_drivers:
             banana_pose_extractor.get_output_port(),
             grasper.get_banana_pose_input_port(),
         )
-        # not too sure what's the reset time for... let's fix something for now
-        time_zero_source = builder.AddNamedSystem(
-            "time_zero_source", ConstantVectorSource(np.array([1.0]))
-        )
         builder.Connect(
-            time_zero_source.get_output_port(), grasper.get_reset_time_input_port()
-        )
-        builder.Connect(
-            grasper.get_banana_grasped_output_port(), fsm.get_has_banana_input_port()
+            grasper.get_banana_grasped_output_port(),
+            fsm.get_has_banana_input_port()
         )
         builder.Connect(
             station.GetOutputPort("spot.state_estimated"),
             grasper.get_spot_state_input_port(),
         )
         builder.Connect(
-            fsm.get_grasp_banana_output_port(), grasper.get_do_grasp_input_port()
+            fsm.get_grasp_banana_output_port(),
+            grasper.get_do_grasp_input_port()
         )
         builder.Connect(
             grasper.get_arm_position_output_port(),
