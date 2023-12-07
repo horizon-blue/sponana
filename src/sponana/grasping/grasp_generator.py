@@ -1,5 +1,9 @@
 import numpy as np
 from IPython.display import clear_output
+from manipulation import running_as_notebook
+from manipulation.meshcat_utils import AddMeshcatTriad
+from manipulation.scenarios import AddFloatingRpyJoint, AddRgbdSensors, ycb
+from manipulation.utils import ConfigureParser
 from pydrake.all import (
     AbstractValue,
     AddMultibodyPlantSceneGraph,
@@ -21,12 +25,8 @@ from pydrake.all import (
     UniformlyRandomRotationMatrix,
 )
 
-from manipulation.meshcat_utils import AddMeshcatTriad
-from manipulation import running_as_notebook
-from manipulation.scenarios import AddFloatingRpyJoint, AddRgbdSensors, ycb
-from manipulation.utils import ConfigureParser
-
 import sponana.utils
+
 
 def BananaSystem(system_str):
     """
@@ -59,6 +59,7 @@ def BananaSystem(system_str):
     diagram.set_name("depth_camera_demo_system")
     return diagram
 
+
 ### Point cloud processing ###
 def get_unified_point_cloud(system, context, meshcat):
     plant = system.GetSubsystemByName("plant")
@@ -77,9 +78,7 @@ def get_unified_point_cloud(system, context, meshcat):
             meshcat.SetProperty(f"pointcloud{i}", "visible", False)
 
         # Crop to region of interest.
-        pcd.append(
-            cloud.Crop(lower_xyz=[-0.3, -0.3, -0.3], upper_xyz=[0.3, 0.3, 0.3])
-        )
+        pcd.append(cloud.Crop(lower_xyz=[-0.3, -0.3, -0.3], upper_xyz=[0.3, 0.3, 0.3]))
         if meshcat is not None:
             meshcat.SetObject(f"pointcloud{i}_cropped", pcd[i], point_size=0.001)
             meshcat.SetProperty(f"pointcloud{i}_cropped", "visible", False)
@@ -109,6 +108,7 @@ def get_unified_point_cloud(system, context, meshcat):
 
     return down_sampled_pcd
 
+
 ####### Score System #########
 # TODO
 def GraspCandidateCost(
@@ -121,7 +121,7 @@ def GraspCandidateCost(
     adjust_X_G=False,
     verbose=False,
     meshcat_path=None,
-    meshcat=None
+    meshcat=None,
 ):
     """
     Args:
@@ -176,9 +176,7 @@ def GraspCandidateCost(
     if meshcat_path:
         pc = PointCloud(np.sum(indices))
         pc.mutable_xyzs()[:] = cloud.xyzs()[:, indices]
-        meshcat.SetObject(
-            "planning/points", pc, rgba=Rgba(1.0, 0, 0), point_size=0.01
-        )
+        meshcat.SetObject("planning/points", pc, rgba=Rgba(1.0, 0, 0), point_size=0.01)
 
     if adjust_X_G and np.sum(indices) > 0:
         p_GC_x = p_GC[0, indices]
@@ -187,9 +185,7 @@ def GraspCandidateCost(
         plant.SetFreeBodyPose(plant_context, wsg, X_G)
         X_GW = X_G.inverse()
 
-    query_object = scene_graph.get_query_output_port().Eval(
-        scene_graph_context
-    )
+    query_object = scene_graph.get_query_output_port().Eval(scene_graph_context)
 
     # Check collisions between the gripper and the sink
     if query_object.HasCollisions():
@@ -207,8 +203,15 @@ def GraspCandidateCost(
             cloud.xyz(i), threshold=margin
         )
         if distances and distances[0].distance < -0.01:
-            print(f"Collision with point {i} - {cloud.xyz(i)}.  distances = {distances[0].distance}")
-            AddMeshcatTriad(meshcat, "planning/collision", length=0.1, X_PT=RigidTransform(cloud.xyz(i)))
+            print(
+                f"Collision with point {i} - {cloud.xyz(i)}.  distances = {distances[0].distance}"
+            )
+            AddMeshcatTriad(
+                meshcat,
+                "planning/collision",
+                length=0.1,
+                X_PT=RigidTransform(cloud.xyz(i)),
+            )
             cost = np.inf
             if verbose:
                 print("Gripper is colliding with the point cloud!\n")
@@ -229,6 +232,7 @@ def GraspCandidateCost(
         print(f"normal terms: {n_GC[0,:]**2}")
     return cost
 
+
 class ScoreSystem(LeafSystem):
     def __init__(self, diagram, cloud, gripper_name, wsg_pose_index, meshcat=None):
         LeafSystem.__init__(self)
@@ -236,9 +240,7 @@ class ScoreSystem(LeafSystem):
         self._diagram = diagram
         self._context = diagram.CreateDefaultContext()
         self._plant = diagram.GetSubsystemByName("plant")
-        self._plant_context = self._plant.GetMyMutableContextFromRoot(
-            self._context
-        )
+        self._plant_context = self._plant.GetMyMutableContextFromRoot(self._context)
         wsg = self._plant.GetBodyByName(gripper_name)
         self._gripper_body_index = wsg.index()
         self._wsg_pose_index = wsg_pose_index
@@ -266,7 +268,9 @@ class ScoreSystem(LeafSystem):
         )
         clear_output(wait=True)
 
+
 ### Grasp generator ###
+
 
 def GenerateAntipodalGraspCandidate(
     diagram,
@@ -342,7 +346,9 @@ def GenerateAntipodalGraspCandidate(
 
         X_G = RigidTransform(R_WG2, p_WG)
         plant.SetFreeBodyPose(plant_context, wsg, X_G)
-        cost = GraspCandidateCost(diagram, context, cloud, adjust_X_G=True, gripper_body_index=wsg_body_index)
+        cost = GraspCandidateCost(
+            diagram, context, cloud, adjust_X_G=True, gripper_body_index=wsg_body_index
+        )
         X_G = plant.GetFreeBodyPose(plant_context, wsg)
         if np.isfinite(cost):
             return cost, X_G

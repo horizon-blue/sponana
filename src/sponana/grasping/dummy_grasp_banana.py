@@ -7,10 +7,11 @@ from pydrake.all import (
     Meshcat,
     RgbdSensor,
     RigidTransform,
+    RotationMatrix,
     SceneGraph,
-    RotationMatrix, 
-    State
+    State,
 )
+
 
 class DummyGrasper(LeafSystem):
     def __init__(self, time_step: float = 0.1):
@@ -19,9 +20,15 @@ class DummyGrasper(LeafSystem):
 
         self.DeclareVectorInputPort("do_grasp", 1)
 
-
-        self.DeclareVectorOutputPort("banana_grasped", 1,self._get_banana_grasped, prerequisites_of_calc=set([self.xd_ticket()]))
-        self.DeclarePeriodicDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_grasp)
+        self.DeclareVectorOutputPort(
+            "banana_grasped",
+            1,
+            self._get_banana_grasped,
+            prerequisites_of_calc=set([self.xd_ticket()]),
+        )
+        self.DeclarePeriodicDiscreteUpdateEvent(
+            period_sec=time_step, offset_sec=0.0, update=self._execute_grasp
+        )
 
     def get_do_grasp_input_port(self):
         return self.get_input_port(0)
@@ -30,12 +37,13 @@ class DummyGrasper(LeafSystem):
         do_grasp_flag = self.get_do_grasp_input_port().Eval(context)
         banana_grasped = 0
         if do_grasp_flag == 1:
-            #doactualgrasp
+            # doactualgrasp
             banana_grasped = 1
         state.set_value(self._banana_grasped, [banana_grasped])
 
-
     def _get_banana_grasped(self, context, output):
-        #banana_grasped = self._banana_grasped.Eval(context)
-        banana_grasped = int(context.get_discrete_state(self._banana_grasped).get_value())
+        # banana_grasped = self._banana_grasped.Eval(context)
+        banana_grasped = int(
+            context.get_discrete_state(self._banana_grasped).get_value()
+        )
         output.SetFromVector([banana_grasped])

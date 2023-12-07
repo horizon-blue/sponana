@@ -35,6 +35,8 @@ from pydrake.visualization import ModelVisualizer
 import sponana.utils
 from sponana.controller import SpotController
 from sponana.debug_logger import DebugLogger
+from sponana.fsm import FiniteStateMachine
+from sponana.grasping import DummyGrasper
 from sponana.hardcoded_cameras import get_camera_generator_str
 from sponana.perception import (
     BananaSpotter,
@@ -42,8 +44,7 @@ from sponana.perception import (
     add_camera_pose_extractor,
 )
 from sponana.planner import Navigator
-from sponana.fsm import FiniteStateMachine
-from sponana.grasping import DummyGrasper
+
 add_finite_state_machine = True
 
 
@@ -216,20 +217,24 @@ model_drivers:
                 spot_camera_config, station, builder
             )
             table_pose_extractors = [
-                add_body_pose_extractor(f"table_top{i}", "table_top_link", station, builder)
+                add_body_pose_extractor(
+                    f"table_top{i}", "table_top_link", station, builder
+                )
                 for i in range(3)
             ]
             banana_spotter = builder.AddNamedSystem(
                 "banana_spotter",
                 BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
             )
-            grasper = builder.AddNamedSystem("banana_grasper",DummyGrasper())
-            #get camera base poses from somewhere
+            grasper = builder.AddNamedSystem("banana_grasper", DummyGrasper())
+            # get camera base poses from somewhere
             camera_pose0 = np.array([1, -2.5, 0.2475])
             camera_pose1 = np.array([1.00000000e00, 1.50392176e-12, 3.15001955e00])
             camera_pose2 = np.array([-2, -2, 0.2475])
             camera_pos_list = [camera_pose0, camera_pose1, camera_pose2]
-            fsm = builder.AddNamedSystem("finite_state_machine", FiniteStateMachine(camera_pos_list))
+            fsm = builder.AddNamedSystem(
+                "finite_state_machine", FiniteStateMachine(camera_pos_list)
+            )
             builder.Connect(
                 station.GetOutputPort("spot.state_estimated"),
                 planner.get_spot_state_input_port(),
@@ -248,10 +253,9 @@ model_drivers:
             )
 
             # Get camera and table poses
-            
 
             # Perception system (Banan Spotter) (placeholder for now)
-            
+
             builder.Connect(
                 fsm.GetOutputPort("check_banana"),
                 banana_spotter.get_check_banana_input_port(),
@@ -284,28 +288,29 @@ model_drivers:
                 spot_controller.GetInputPort("desired_gripper_pose"),
             )
 
-            #if add_finite_state_machine:
-            #import port here already wired
+            # if add_finite_state_machine:
+            # import port here already wired
             """builder.Connect(
             planner.GetOutputPort("done_rrt"),
             fsm.get_camera_reached_input_port())"""
 
             builder.Connect(
-            banana_spotter.GetOutputPort("has_banana"),
-            fsm.get_see_banana_input_port())
-
-            builder.Connect(
-            grasper.GetOutputPort("banana_grasped"), 
-            fsm.get_has_banana_input_port())
-
-            #output ports
-
-            #single cam pose in discretevalue(3) just the desired base pose
-            builder.Connect(
-                fsm.GetOutputPort("single_cam_pose"), 
-                planner.GetInputPort("target_position")
+                banana_spotter.GetOutputPort("has_banana"),
+                fsm.get_see_banana_input_port(),
             )
-            #already wired
+
+            builder.Connect(
+                grasper.GetOutputPort("banana_grasped"), fsm.get_has_banana_input_port()
+            )
+
+            # output ports
+
+            # single cam pose in discretevalue(3) just the desired base pose
+            builder.Connect(
+                fsm.GetOutputPort("single_cam_pose"),
+                planner.GetInputPort("target_position"),
+            )
+            # already wired
             """
             builder.Connect(
                 fsm.GetOutputPort("check_banana"), 
@@ -313,10 +318,9 @@ model_drivers:
             )
             """
             builder.Connect(
-                fsm.GetOutputPort("grasp_banana"), 
-                grasper.GetInputPort("do_grasp")
+                fsm.GetOutputPort("grasp_banana"), grasper.GetInputPort("do_grasp")
             )
-            #already wired
+            # already wired
             """
             builder.Connect(
                 fsm.GetOutputPort("do_rrt"), 

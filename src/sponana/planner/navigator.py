@@ -58,7 +58,12 @@ class Navigator(LeafSystem):
         self._init_internal_model(scenario_file)
 
         # output port for when Navigator is done
-        self.DeclareVectorOutputPort("done_rrt", 1, self._get_done_rrt, prerequisites_of_calc=set([self.xd_ticket()]))
+        self.DeclareVectorOutputPort(
+            "done_rrt",
+            1,
+            self._get_done_rrt,
+            prerequisites_of_calc=set([self.xd_ticket()]),
+        )
 
         # kick off the planner
         self.DeclareInitializationDiscreteUpdateEvent(self._plan_trajectory)
@@ -83,11 +88,16 @@ class Navigator(LeafSystem):
         do_rrt = self.get_do_rrt_input_port().Eval(context)
         if do_rrt == 1:
             current_position = self.get_spot_state_input_port().Eval(context)[:3]
-            print("in navigator plan trajectory: print current position:", current_position)
+            print(
+                "in navigator plan trajectory: print current position:",
+                current_position,
+            )
             # FIXME: hard code the goal for now
             target_position = self.get_target_position_input_port().Eval(context)
             # target_position = np.array([-2, -2, 3.15001955e00]) #fixed target position test
-            print("in navigator plan trajectory: print target position:", target_position)
+            print(
+                "in navigator plan trajectory: print target position:", target_position
+            )
             spot_problem = SpotProblem(
                 current_position, target_position, self._collision_check
             )
@@ -131,7 +141,7 @@ class Navigator(LeafSystem):
         return _spot_in_collision(self._plant, self._scene_graph, self._station_context)
 
     def _get_done_rrt(self, context, output):
-        #done_rrt = self._done_rrt.Eval(context)
+        # done_rrt = self._done_rrt.Eval(context)
         done_rrt = int(context.get_discrete_state(self._done_rrt).get_value())
         output.SetFromVector([done_rrt])
 

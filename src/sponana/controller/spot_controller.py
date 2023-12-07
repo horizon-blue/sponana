@@ -83,7 +83,8 @@ def make_spot_controller(
 
         if not enable_arm_ik:
             builder.Connect(
-                teleop.get_output_port(), position_combiner.get_arm_position_input_port()
+                teleop.get_output_port(),
+                position_combiner.get_arm_position_input_port(),
             )
 
     # Export I/O ports

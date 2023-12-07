@@ -35,6 +35,7 @@ from pydrake.visualization import ModelVisualizer
 import sponana.utils
 from sponana.controller import SpotController
 from sponana.debug_logger import DebugLogger
+from sponana.fsm import finite_state_machine
 from sponana.hardcoded_cameras import get_camera_generator_str
 from sponana.perception import (
     BananaSpotter,
@@ -42,7 +43,6 @@ from sponana.perception import (
     add_camera_pose_extractor,
 )
 from sponana.planner import Navigator
-from sponana.fsm import finite_state_machine
 
 ###Added in sim.py for FSM
 ##This is just notes file for reference on double monitors

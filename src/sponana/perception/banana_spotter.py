@@ -18,7 +18,7 @@ class BananaSpotter(LeafSystem):
         self._check_banana = self.DeclareDiscreteState(1)
 
         # Input ports
-        self.DeclareVectorInputPort("check_banana",1)
+        self.DeclareVectorInputPort("check_banana", 1)
         self.DeclareAbstractInputPort(
             "color_image", camera.color_image_output_port().Allocate()
         )
@@ -33,14 +33,19 @@ class BananaSpotter(LeafSystem):
             self.DeclareAbstractInputPort(
                 f"table{i}_pose", AbstractValue.Make(RigidTransform())
             )
-        
+
         # Output ports
         self.DeclareAbstractOutputPort(
             "banana_pose",
             lambda: AbstractValue.Make(RigidTransform()),
             self._locate_banana,
         )
-        self.DeclareVectorOutputPort("has_banana", 1, self._find_banana, prerequisites_of_calc=set([self.xd_ticket()]))
+        self.DeclareVectorOutputPort(
+            "has_banana",
+            1,
+            self._find_banana,
+            prerequisites_of_calc=set([self.xd_ticket()]),
+        )
 
     def get_check_banana_input_port(self):
         return self.get_input_port(0)

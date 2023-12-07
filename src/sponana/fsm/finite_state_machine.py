@@ -7,19 +7,21 @@ from pydrake.all import (
     Meshcat,
     RgbdSensor,
     RigidTransform,
+    RotationMatrix,
     SceneGraph,
-    RotationMatrix, 
-    State
+    State,
 )
 
 debug_messages = True
+
 
 class FiniteStateMachine(LeafSystem):
     """Given list of where cameras are in the scene, have spot do RRT
     and go to each of these cameras in order (using the Navigator leaf system)
     , until banana is found.
     """
-    def __init__(self,camera_pos_list, time_step: float = 0.1):
+
+    def __init__(self, camera_pos_list, time_step: float = 0.1):
         super().__init__()
         self._camera_pos_list = camera_pos_list
         self._camera_pose_ind = self.DeclareDiscreteState(1)
@@ -31,43 +33,60 @@ class FiniteStateMachine(LeafSystem):
         self._grasp_banana = self.DeclareDiscreteState(1)
         self._do_rrt = self.DeclareDiscreteState(1)
         ### Input ports
-        #list of camera poses for Spot to travel to in order
-        #self.DeclareAbstractInputPort("camera_poses", 3, [self.DeclareDiscreteState(3)])
-        #self.DeclareVectorInputPort("camera_poses", num_camera_pos, [self.DeclareDiscreteState(3)])
-        #spot "start state for RRT for navigator leaf system". 
-        #don't know if need because navigator already gets this from the station
-        #self.DeclareVectorInputPort("spot_init_state", 20)
-        #check if camera has been reached (some value returned from Navigator)
+        # list of camera poses for Spot to travel to in order
+        # self.DeclareAbstractInputPort("camera_poses", 3, [self.DeclareDiscreteState(3)])
+        # self.DeclareVectorInputPort("camera_poses", num_camera_pos, [self.DeclareDiscreteState(3)])
+        # spot "start state for RRT for navigator leaf system".
+        # don't know if need because navigator already gets this from the station
+        # self.DeclareVectorInputPort("spot_init_state", 20)
+        # check if camera has been reached (some value returned from Navigator)
         self.DeclareVectorInputPort("camera_reached", 1)
 
-        #has banana been found? This should be returned from the perception module.
+        # has banana been found? This should be returned from the perception module.
         self.DeclareVectorInputPort("see_banana", 1)
-        #has banana been found? This should be returned from the grasping module.
+        # has banana been found? This should be returned from the grasping module.
         self.DeclareVectorInputPort("has_banana", 1)
-        
+
         ###OUTPUT PORTS
 
-        #next_camera_pose to be q_goal for the navigator
-        self.DeclareVectorOutputPort("single_cam_pose",3, self._get_next_camera_pose, prerequisites_of_calc=set([self.xd_ticket()]))
-        self.DeclareVectorOutputPort("check_banana",1,self._get_check_banana, prerequisites_of_calc=set([self.xd_ticket()]))
+        # next_camera_pose to be q_goal for the navigator
+        self.DeclareVectorOutputPort(
+            "single_cam_pose",
+            3,
+            self._get_next_camera_pose,
+            prerequisites_of_calc=set([self.xd_ticket()]),
+        )
+        self.DeclareVectorOutputPort(
+            "check_banana",
+            1,
+            self._get_check_banana,
+            prerequisites_of_calc=set([self.xd_ticket()]),
+        )
 
-        self.DeclareVectorOutputPort("grasp_banana", 1,self._get_grasp_banana, prerequisites_of_calc=set([self.xd_ticket()]))
+        self.DeclareVectorOutputPort(
+            "grasp_banana",
+            1,
+            self._get_grasp_banana,
+            prerequisites_of_calc=set([self.xd_ticket()]),
+        )
 
-        
-        self.DeclareVectorOutputPort("do_rrt",1, self._get_do_rrt)
+        self.DeclareVectorOutputPort("do_rrt", 1, self._get_do_rrt)
 
-        self.DeclarePeriodicDiscreteUpdateEvent(period_sec=time_step, offset_sec=0.0, update=self._execute_finite_state_machine)
-    
-    
+        self.DeclarePeriodicDiscreteUpdateEvent(
+            period_sec=time_step,
+            offset_sec=0.0,
+            update=self._execute_finite_state_machine,
+        )
+
     def get_camera_reached_input_port(self):
         return self.get_input_port(0)
-    
+
     def get_see_banana_input_port(self):
         return self.get_input_port(1)
-    
+
     def get_has_banana_input_port(self):
-        return self.get_input_port(2)    
-    
+        return self.get_input_port(2)
+
     """
     def get_next_cam_pose_output_port(self):
         return self.get_output_port(0)
@@ -78,32 +97,34 @@ class FiniteStateMachine(LeafSystem):
     def get_do_rrt_output_port(self):
         return self.get_output_port(3)
     """
-    
+
     def _update_do_rrt(self, context: Context):
         """
         Function to update flag to indicate to RRT/Navigator for ready for planning/movement.
-        Inputs: 
-        - from context, 
+        Inputs:
+        - from context,
         current_cam_reached: int where 0 when camera is reached and 1 when not.
-        
-        Returns: 
-        - new_cam_reached: if current cam reached, switch to 0 so that navigator can plan again. 
-        if current cam is not reached, stay 1 so that navigator will wait. 
+
+        Returns:
+        - new_cam_reached: if current cam reached, switch to 0 so that navigator can plan again.
+        if current cam is not reached, stay 1 so that navigator will wait.
         """
         current_cam_reached = self.get_camera_reached_input_port().Eval(context)
-        current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
+        current_cam_ind = int(
+            context.get_discrete_state(self._camera_pose_ind).get_value()
+        )
         check_banana = int(context.get_discrete_state(self._check_banana).get_value())
-        if debug_messages == True: 
+        if debug_messages == True:
             print("within _update_do_rrt function check ____")
             print("current_cam_reached:", current_cam_reached)
             print("check_banana:", check_banana)
         do_rrt = 0
-        #just starting, have not reached the first camera pose, do_rrt to get to the first camera
+        # just starting, have not reached the first camera pose, do_rrt to get to the first camera
         if current_cam_reached == 0 and current_cam_ind == 0:
             if debug_messages == True:
                 print("first_rrt_condition")
             do_rrt = 1
-        elif current_cam_reached == 1 and check_banana == 1: 
+        elif current_cam_reached == 1 and check_banana == 1:
             if debug_messages == True:
                 print("second_rrt_condition")
             do_rrt = 1
@@ -114,61 +135,63 @@ class FiniteStateMachine(LeafSystem):
         return do_rrt
 
     def _update_camera_ind(self, context: Context, state: State):
-        """Function for updating camera pose list index. 
-        Inputs: 
-        - from context: 
+        """Function for updating camera pose list index.
+        Inputs:
+        - from context:
         current_cam_reached: int where 0 when camera is reached and 1 when not.
-        see_banana: int where 0 when banana is not seen and 1 when banana seen. 
-        has_banana: int where 0 when banana is grasped nad 1 when banana is not grasped. 
+        see_banana: int where 0 when banana is not seen and 1 when banana seen.
+        has_banana: int where 0 when banana is grasped nad 1 when banana is not grasped.
 
         Returns: None
         If current camera is reached and no banana is seen/grasped, needs to continue to search
-        next camera pose, so current_cam_ind is incremented. 
-        """ 
+        next camera pose, so current_cam_ind is incremented.
+        """
         current_cam_reached = self.get_camera_reached_input_port().Eval(context)
         see_banana = self.get_see_banana_input_port().Eval(context)
         has_banana = self.get_has_banana_input_port().Eval(context)
-        current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
+        current_cam_ind = int(
+            context.get_discrete_state(self._camera_pose_ind).get_value()
+        )
         new_cam_ind = current_cam_ind
         num_poses = len(self._camera_pos_list)
         if current_cam_reached[0] == 1 and see_banana == 0 and has_banana == 0:
-            if current_cam_ind <= num_poses-1:
+            if current_cam_ind <= num_poses - 1:
                 new_cam_ind += 1
-            #none viewpoints have bananas, so do it all again?
+            # none viewpoints have bananas, so do it all again?
             else:
                 new_cam_ind = 0
         state.set_value(self._camera_pose_ind, [new_cam_ind])
 
-
     def _get_camera_pose(self, context: Context):
         """
         Function to get the next camera pose for Spot to travel to in RRT
-        Inputs: 
-        - from context: 
+        Inputs:
+        - from context:
         current_cam_reached: int where 0 when camera is reached and 1 when not.
-        Returns: 
+        Returns:
         - next camera pose
         """
-        current_cam_ind = int(context.get_discrete_state(self._camera_pose_ind).get_value())
+        current_cam_ind = int(
+            context.get_discrete_state(self._camera_pose_ind).get_value()
+        )
         next_camera_pose = self._camera_pos_list[current_cam_ind]
-        if debug_messages == True: 
+        if debug_messages == True:
             print("within get_camera_pose function check ______")
             print("current_cam_ind:", current_cam_ind)
             print("next_camera_pose:", next_camera_pose)
         return next_camera_pose
-        
 
     def _update_check_banana(self, context: Context):
         """Function as indicater for perception module.
-        Inputs: 
-        - from context: 
+        Inputs:
+        - from context:
         current_cam_reached: int where 0 when camera is reached and 1 when not.
-        see_banana: int where 0 when banana is not seen and 1 when banana seen. 
-        has_banana: int where 0 when banana is grasped nad 1 when banana is not grasped. 
+        see_banana: int where 0 when banana is not seen and 1 when banana seen.
+        has_banana: int where 0 when banana is grasped nad 1 when banana is not grasped.
 
-        Returns: 
-        check_banana: if current_cam is reached, and banana is not seen, and banana is not grasped, 
-        return 1 to call the perception module/system. 
+        Returns:
+        check_banana: if current_cam is reached, and banana is not seen, and banana is not grasped,
+        return 1 to call the perception module/system.
         """
         current_cam_reached = self.get_camera_reached_input_port().Eval(context)
         see_banana = self.get_see_banana_input_port().Eval(context)
@@ -177,18 +200,18 @@ class FiniteStateMachine(LeafSystem):
         if current_cam_reached == 1 and see_banana == 0 and has_banana == 0:
             check_banana = 1
         return check_banana
-        
+
     def _update_grasp_banana(self, context: Context):
         """Function as indicater for perception module.
-        Inputs: 
-        - from context: 
+        Inputs:
+        - from context:
         current_cam_reached: int where 0 when camera is reached and 1 when not.
-        see_banana: int where 0 when banana is not seen and 1 when banana seen. 
-        has_banana: int where 0 when banana is grasped nad 1 when banana is not grasped. 
+        see_banana: int where 0 when banana is not seen and 1 when banana seen.
+        has_banana: int where 0 when banana is grasped nad 1 when banana is not grasped.
 
-        Returns: 
-        grasp_banana: if current_cam is reached, and banana is seen, and banana is not grasped, 
-        return 1 to get banana grasped system. 
+        Returns:
+        grasp_banana: if current_cam is reached, and banana is seen, and banana is not grasped,
+        return 1 to get banana grasped system.
         """
         current_cam_reached = self.get_camera_reached_input_port().Eval(context)
         see_banana = self.get_see_banana_input_port().Eval(context)
@@ -221,26 +244,28 @@ class FiniteStateMachine(LeafSystem):
             state.set_value(self._completed, [completed])
 
     def _get_do_rrt(self, context, output):
-        #do_rrt = self._do_rrt.Eval(context)
+        # do_rrt = self._do_rrt.Eval(context)
         do_rrt = int(context.get_discrete_state(self._do_rrt).get_value())
         print("do_rrt retrieval", do_rrt)
         output.SetFromVector([do_rrt])
 
     def _get_check_banana(self, context, output):
-        #check_banana = self._check_banana.Eval(context)
+        # check_banana = self._check_banana.Eval(context)
         check_banana = int(context.get_discrete_state(self._check_banana).get_value())
-        #check
+        # check
         print("check_banana retrieval", check_banana)
         output.SetFromVector([check_banana])
 
     def _get_grasp_banana(self, context, output):
-        #grasp_banana = self._grasp_banana.Eval(context)
+        # grasp_banana = self._grasp_banana.Eval(context)
         grasp_banana = int(context.get_discrete_state(self._grasp_banana).get_value())
         print("grasp_banana retrieval", grasp_banana)
         output.SetFromVector([grasp_banana])
-    
+
     def _get_next_camera_pose(self, context, output):
-        #next_camera_pose = self._next_camera_pose.Eval(context)
-        next_camera_pose = int(context.get_discrete_state(self._next_camera_pose).get_value())
+        # next_camera_pose = self._next_camera_pose.Eval(context)
+        next_camera_pose = int(
+            context.get_discrete_state(self._next_camera_pose).get_value()
+        )
         print("next_camera_pose retrieval", next_camera_pose)
         output.set_value(next_camera_pose)
