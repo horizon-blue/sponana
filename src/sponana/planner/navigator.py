@@ -42,11 +42,16 @@ class Navigator(LeafSystem):
         self._traj_idx = self.DeclareDiscreteState(1)
         self._done_rrt = self.DeclareDiscreteState(1)
         self.DeclareStateOutputPort("base_position", self._base_position)
+        self.DeclareStateOutputPort("done_rrt", self._done_rrt)
+
+        # Initialize internal simulation model
+        self._init_internal_model(scenario_file)
 
         # Periodically update the state to move to the next position in the
         # trajectory
+        self._trajectory = None
         self.DeclarePeriodicDiscreteUpdateEvent(
-            period_sec=time_step, offset_sec=2, update=self._update
+            period_sec=time_step, offset_sec=2.0, update=self._update
         )
 
         # Input ports
@@ -54,19 +59,8 @@ class Navigator(LeafSystem):
         self.DeclareVectorInputPort("target_position", 3)
         self.DeclareVectorInputPort("do_rrt", 1)
 
-        # Initialize internal simulation model
-        self._init_internal_model(scenario_file)
-
-        # output port for when Navigator is done
-        self.DeclareVectorOutputPort(
-            "done_rrt",
-            1,
-            self._get_done_rrt,
-            prerequisites_of_calc=set([self.xd_ticket()]),
-        )
-
-        # kick off the planner
-        self.DeclareInitializationDiscreteUpdateEvent(self._plan_trajectory)
+        # # kick off the planner
+        # self.DeclareInitializationDiscreteUpdateEvent(self._plan_trajectory)
 
     def get_spot_state_input_port(self):
         return self.get_input_port(0)
@@ -85,51 +79,49 @@ class Navigator(LeafSystem):
 
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
-        do_rrt = self.get_do_rrt_input_port().Eval(context)
-        if do_rrt == 1:
-            current_position = self.get_spot_state_input_port().Eval(context)[:3]
-            print(
-                "in navigator plan trajectory: print current position:",
-                current_position,
-            )
-            # FIXME: hard code the goal for now
-            target_position = self.get_target_position_input_port().Eval(context)
-            # target_position = np.array([-2, -2, 3.15001955e00]) #fixed target position test
-            print(
-                "in navigator plan trajectory: print target position:", target_position
-            )
-            spot_problem = SpotProblem(
-                current_position, target_position, self._collision_check
-            )
-            trajectory = rrt_planning(spot_problem, max_iterations=1000)
+        current_position = self.get_spot_state_input_port().Eval(context)[:3]
+        print(
+            "in navigator plan trajectory: print current position:",
+            current_position,
+        )
+        target_position = self.get_target_position_input_port().Eval(context)
+        print("in navigator plan trajectory: print target position:", target_position)
+        spot_problem = SpotProblem(
+            current_position, target_position, self._collision_check
+        )
+        trajectory = rrt_planning(spot_problem, max_iterations=1000)
 
-            if self._meshcat:
-                for t, pose in enumerate(trajectory):
-                    # convert position to pose for plotting
-                    pose = RigidTransform(
-                        RotationMatrix.MakeZRotation(pose[2]), [*pose[:2], 0.0]
-                    )
-                    opacity = 0.2 if t > 0 and t < len(trajectory) - 1 else 1.0
-                    AddMeshcatTriad(
-                        self._meshcat, f"trajectory_{t}", X_PT=pose, opacity=opacity
-                    )
+        if self._meshcat:
+            for t, pose in enumerate(trajectory):
+                # convert position to pose for plotting
+                pose = RigidTransform(
+                    RotationMatrix.MakeZRotation(pose[2]), [*pose[:2], 0.0]
+                )
+                opacity = 0.2 if t > 0 and t < len(trajectory) - 1 else 1.0
+                AddMeshcatTriad(
+                    self._meshcat, f"trajectory_{t}", X_PT=pose, opacity=opacity
+                )
 
-            self._trajectory = trajectory
-            # initial state
-            state.set_value(self._base_position, trajectory[0])
-            state.set_value(self._traj_idx, [0])
-            state.set_value(self._done_rrt, [1])
-        else:
-            state.set_value(self._done_rrt, [0])
+        self._trajectory = trajectory
+        # initial state
+        state.set_value(self._base_position, trajectory[0])
+        state.set_value(self._traj_idx, [0])
+        state.set_value(self._done_rrt, [1])
 
     def _update(self, context: Context, state: State):
         do_rrt = self.get_do_rrt_input_port().Eval(context)
-        if do_rrt == 1:
-            last_idx = int(context.get_discrete_state(self._traj_idx).get_value())
-            idx = last_idx + 1 if last_idx < len(self._trajectory) - 1 else last_idx
+        if do_rrt == 0:
+            return
+        if self._trajectory is None:
+            self._plan_trajectory(context, state)
 
-            state.set_value(self._base_position, self._trajectory[idx])
+        last_idx = int(context.get_discrete_state(self._traj_idx).get_value())
+        if last_idx < len(self._trajectory) - 1:
+            idx = last_idx + 1
             state.set_value(self._traj_idx, [idx])
+            state.set_value(self._base_position, self._trajectory[idx])
+        else:
+            state.set_value(self._done_rrt, [1])
 
     def _collision_check(self, configuration: ConfigType) -> bool:
         # move Spot to the proposed position
@@ -139,11 +131,6 @@ class Navigator(LeafSystem):
         )
         # check for collision pairs
         return _spot_in_collision(self._plant, self._scene_graph, self._station_context)
-
-    def _get_done_rrt(self, context, output):
-        # done_rrt = self._done_rrt.Eval(context)
-        done_rrt = int(context.get_discrete_state(self._done_rrt).get_value())
-        output.SetFromVector([done_rrt])
 
     def _init_internal_model(self, scenario_file: str):
         """Initialize the planner's own internal model of the environment and use it for collision checking."""

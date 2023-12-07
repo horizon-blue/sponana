@@ -50,10 +50,17 @@ class FiniteStateMachine(LeafSystem):
         self.DeclareStateOutputPort("grasp_banana", self._grasp_banana)
         self.DeclareStateOutputPort("do_rrt", self._do_rrt)
 
+        self._completed: bool = False
+
         self.DeclarePeriodicDiscreteUpdateEvent(
             period_sec=time_step,
             offset_sec=0.0,
             update=self._execute_finite_state_machine,
+        )
+
+        # kick off the FSM
+        self.DeclareInitializationDiscreteUpdateEvent(
+            self._execute_finite_state_machine
         )
 
     def get_camera_reached_input_port(self):
@@ -202,22 +209,19 @@ class FiniteStateMachine(LeafSystem):
 
     def _update_completion(self, context: Context):
         has_banana = self.get_has_banana_input_port().Eval(context)
-        completed = 0
-        if has_banana == 1:
-            completed = 1
-        return completed
+        return bool(has_banana)
 
     def _execute_finite_state_machine(self, context: Context, state: State):
-        complete_flag = int(context.get_discrete_state(self._completed).get_value())
-        if complete_flag == 0:
-            next_camera_pose = self._get_camera_pose(context)
-            state.set_value(self._next_camera_pose, next_camera_pose)
-            check_do_rrt = self._update_do_rrt(context)
-            state.set_value(self._do_rrt, [check_do_rrt])
-            check_banana = self._update_check_banana(context)
-            state.set_value(self._check_banana, [check_banana])
-            grasp_banana = self._update_grasp_banana(context)
-            state.set_value(self._grasp_banana, [grasp_banana])
-            self._update_camera_ind(context, state)
-            completed = self._update_completion(context)
-            state.set_value(self._completed, [completed])
+        if self._completed:
+            return
+        next_camera_pose = self._get_camera_pose(context)
+        state.set_value(self._next_camera_pose, next_camera_pose)
+        check_do_rrt = self._update_do_rrt(context)
+        state.set_value(self._do_rrt, [check_do_rrt])
+        check_banana = self._update_check_banana(context)
+        state.set_value(self._check_banana, [check_banana])
+        grasp_banana = self._update_grasp_banana(context)
+        state.set_value(self._grasp_banana, [grasp_banana])
+        self._update_camera_ind(context, state)
+        completed = self._update_completion(context)
+        self._completed = completed

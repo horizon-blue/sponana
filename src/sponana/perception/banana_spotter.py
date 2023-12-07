@@ -15,7 +15,6 @@ class BananaSpotter(LeafSystem):
     def __init__(self, camera: RgbdSensor, num_tables: int = 0):
         super().__init__()
         self._camera = camera
-        self._check_banana = self.DeclareDiscreteState(1)
 
         # Input ports
         self.DeclareVectorInputPort("check_banana", 1)
@@ -40,12 +39,7 @@ class BananaSpotter(LeafSystem):
             lambda: AbstractValue.Make(RigidTransform()),
             self._locate_banana,
         )
-        self.DeclareVectorOutputPort(
-            "has_banana",
-            1,
-            self._find_banana,
-            prerequisites_of_calc=set([self.xd_ticket()]),
-        )
+        self.DeclareVectorOutputPort("found_banana", 1, self._find_banana)
 
     def get_check_banana_input_port(self):
         return self.get_input_port(0)
@@ -62,6 +56,12 @@ class BananaSpotter(LeafSystem):
     def get_table_pose_input_port(self, table_index: int):
         return self.get_input_port(4 + table_index)
 
+    def get_banana_pose_output_port(self):
+        return self.GetOutputPort("banana_pose")
+
+    def get_found_banana_output_port(self):
+        return self.GetOutputPort("found_banana")
+
     def _locate_banana(self, context: Context, output: AbstractValue):
         banana_pose, _ = self._find_and_locate_banana(context)
         output.set_value(banana_pose)
@@ -69,8 +69,8 @@ class BananaSpotter(LeafSystem):
     def _find_banana(self, context: Context, output: BasicVector):
         check_banana = self.get_check_banana_input_port().Eval(context)
         if check_banana == 1:
-            _, has_banana = self._find_and_locate_banana(context)
-            output[0] = has_banana
+            _, found_banana = self._find_and_locate_banana(context)
+            output[0] = found_banana
         else:
             output[0] = 0
 
@@ -81,7 +81,7 @@ class BananaSpotter(LeafSystem):
         check_banana = self.get_check_banana_input_port().Eval(context)
         if check_banana == 1:
             banana_pose = RigidTransform()
-            has_banana = not not banana_pose
-            return banana_pose, has_banana
+            found_banana = not not banana_pose
+            return banana_pose, found_banana
         else:
             return [], 0
