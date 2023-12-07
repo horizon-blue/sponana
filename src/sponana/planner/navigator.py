@@ -7,7 +7,7 @@ from pydrake.all import Context, LeafSystem, Meshcat, MultibodyPlant, SceneGraph
 from ..controller import q_nominal_arm
 from ..utils import MakeSponanaHardwareStation, set_spot_positions
 from .rrt import ConfigType, SpotProblem, rrt_planning
-from .utils import visualize_path
+from .utils import delete_path_visual, visualize_path
 
 default_scenario = "package://sponana/scenes/three_rooms_with_tables.dmd.yaml"
 
@@ -21,7 +21,7 @@ class Navigator(LeafSystem):
 
     def __init__(
         self,
-        time_step: float = 0.1,
+        time_step: float = 0.05,
         meshcat: Optional[Meshcat] = None,
         scenario_file: str = default_scenario,
         initial_position: np.ndarray = np.zeros(3),
@@ -31,7 +31,6 @@ class Navigator(LeafSystem):
 
         # internal states & output port
         self._base_position = self.DeclareDiscreteState(3)
-        self._traj_idx = self.DeclareDiscreteState(1)
         self._done_rrt = self.DeclareDiscreteState(1)
         self.DeclareStateOutputPort("base_position", self._base_position)
         self.DeclareStateOutputPort("done_rrt", self._done_rrt)
@@ -42,6 +41,8 @@ class Navigator(LeafSystem):
         # Periodically update the state to move to the next position in the
         # trajectory
         self._trajectory = None
+        self._traj_idx = -1
+        self._previous_goal = initial_position
         self.DeclarePeriodicDiscreteUpdateEvent(
             period_sec=time_step, offset_sec=0.0, update=self._update
         )
@@ -76,10 +77,13 @@ class Navigator(LeafSystem):
     def _initialize_states(self, context: Context, state: State):
         state.set_value(self._base_position, self._initial_position)
         state.set_value(self._done_rrt, [0])
-        state.set_value(self._traj_idx, [0])
 
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
+        if self._meshcat and self._trajectory is not None:
+            # remove previously visualized trajectory, if there's any
+            delete_path_visual(self._trajectory, self._meshcat)
+
         current_position = self._get_current_position(context)
         print(
             "in navigator plan trajectory: print current position:",
@@ -95,23 +99,28 @@ class Navigator(LeafSystem):
         if self._meshcat:
             visualize_path(trajectory, self._meshcat)
 
+        # reset trajectory
         self._trajectory = trajectory
-        # initial state
-        state.set_value(self._base_position, trajectory[0])
-        state.set_value(self._traj_idx, [0])
+        self._previous_goal = target_position
+        self._traj_idx = -1
+
+    def _should_replan(self, context: Context) -> bool:
+        target_position = self.get_target_position_input_port().Eval(context)
+        if self._trajectory is None:
+            return True
+        should_replan = not np.allclose(target_position, self._previous_goal)
+        return should_replan
 
     def _update(self, context: Context, state: State):
         do_rrt = self.get_do_rrt_input_port().Eval(context)
         if do_rrt == 0:
             return
-        if self._trajectory is None:
+        if self._should_replan(context):
             self._plan_trajectory(context, state)
 
-        last_idx = int(context.get_discrete_state(self._traj_idx).get_value())
-        if last_idx < len(self._trajectory) - 1:
-            idx = last_idx + 1
-            state.set_value(self._traj_idx, [idx])
-            state.set_value(self._base_position, self._trajectory[idx])
+        if self._traj_idx < len(self._trajectory) - 1:
+            self._traj_idx += 1
+            state.set_value(self._base_position, self._trajectory[self._traj_idx])
             state.set_value(self._done_rrt, [0])
         else:
             state.set_value(self._done_rrt, [1])
