@@ -64,6 +64,7 @@ def clutter_gen(
     ],
     use_teleop=True,
     starting_position=np.array([3.0, 7.0, -1.57]),
+    plot_camera_input=False,
 ):
     """
     Generate a Sponana environment consistent with the provided `table_specs`.
@@ -170,7 +171,11 @@ model_drivers:
     )
     banana_spotter = builder.AddNamedSystem(
         "banana_spotter",
-        BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
+        BananaSpotter(
+            spot_camera,
+            num_tables=len(table_pose_extractors),
+            plot_camera_input=plot_camera_input,
+        ),
     )
     # Banana pose (using cheat port -- placeholder for now)
     banana_pose_extractor = add_body_pose_extractor(

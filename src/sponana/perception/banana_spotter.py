@@ -1,9 +1,5 @@
-from functools import cache
-
-import matplotlib.pyplot as plt
 from pydrake.all import (
     AbstractValue,
-    BasicVector,
     Context,
     LeafSystem,
     RgbdSensor,
@@ -11,11 +7,20 @@ from pydrake.all import (
     State,
 )
 
+from ..utils import plot_two_images_side_by_side
+
 
 class BananaSpotter(LeafSystem):
-    def __init__(self, camera: RgbdSensor, num_tables: int = 0, time_step: float = 0.1):
+    def __init__(
+        self,
+        camera: RgbdSensor,
+        num_tables: int = 0,
+        time_step: float = 0.1,
+        plot_camera_input: bool = False,
+    ):
         super().__init__()
         self._camera = camera
+        self._plot_camera_input = plot_camera_input
 
         # Input ports
         self.DeclareVectorInputPort("check_banana", 1)
@@ -49,6 +54,10 @@ class BananaSpotter(LeafSystem):
             update=self._try_find_banana,
         )
 
+        # we need to compare the current checking stage with previous one to only
+        # trigger banana spotter when the checking stage changes
+        self._was_checking_banana = False
+
     def get_check_banana_input_port(self):
         return self.GetInputPort("check_banana")
 
@@ -77,17 +86,20 @@ class BananaSpotter(LeafSystem):
     def _set_banana_pose(self, state: State, pose: RigidTransform):
         state.get_mutable_abstract_state(self._banana_pose).set_value(pose)
 
+    def _should_check_banana(self, context: Context):
+        check_banana = True
+        if self.get_check_banana_input_port().HasValue(context):
+            check_banana = bool(self.get_check_banana_input_port().Eval(context)[0])
+        retval = check_banana and not self._was_checking_banana
+        self._was_checking_banana = check_banana
+        return retval
+
     def _try_find_banana(self, context: Context, state: State):
-        should_check_banana = self.get_check_banana_input_port().Eval(context)
-        if not should_check_banana:
+        if not self._should_check_banana(context):
             return
 
-        color_image = self.EvalAbstractInput(context, 0).get_value()
-        depth_image = self.EvalAbstractInput(context, 1).get_value()
-        # TODO: fill in the actual perception module and delete the following lines
-        plt.figure(figsize=(10, 4))
-        plt.subplot(1, 2, 1)
-        plt.imshow(color_image.data)
-        plt.subplot(1, 2, 2)
-        plt.imshow(depth_image.data)
-        plt.show()
+        color_image = self.get_color_image_input_port().Eval(context)
+        depth_image = self.get_depth_image_input_port().Eval(context)
+        # TODO: fill in the actual perception module
+        if self._plot_camera_input:
+            plot_two_images_side_by_side(color_image.data, depth_image.data)

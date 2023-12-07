@@ -9,6 +9,8 @@ from pydrake.all import (
     RigidTransform,
 )
 
+from .utils import plot_two_images_side_by_side
+
 
 class DebugLogger(LeafSystem):
     """
@@ -74,14 +76,9 @@ class DebugLogger(LeafSystem):
 
     def _plot_images(self, context: Context):
         """for debeugging"""
-        color_image = self.EvalAbstractInput(context, 0).get_value()
-        depth_image = self.EvalAbstractInput(context, 1).get_value()
-        plt.figure(figsize=(10, 4))
-        plt.subplot(1, 2, 1)
-        plt.imshow(color_image.data)
-        plt.subplot(1, 2, 2)
-        plt.imshow(depth_image.data)
-        plt.show()
+        color_image = self.get_color_image_input_port().Eval(context)
+        depth_image = self.get_depth_image_input_port().Eval(context)
+        plot_two_images_side_by_side(color_image.data, depth_image.data)
 
     def _log_camera_pose(self, context: Context):
         camera_pose = self.EvalAbstractInput(context, 2)

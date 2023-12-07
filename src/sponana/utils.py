@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pydot
 from IPython.display import SVG, display
@@ -89,3 +90,12 @@ def set_spot_positions(
     if visualize:
         station_context = station.GetMyContextFromRoot(root_context)
         station.ForcedPublish(station_context)
+
+
+def plot_two_images_side_by_side(img1: np.ndarray, img2: np.ndarray):
+    plt.figure(figsize=(10, 4))
+    plt.subplot(1, 2, 1)
+    plt.imshow(img1)
+    plt.subplot(1, 2, 2)
+    plt.imshow(img2)
+    plt.show()
