@@ -45,8 +45,6 @@ from sponana.perception import (
 )
 from sponana.planner import Navigator
 
-add_finite_state_machine = True
-
 
 @dataclass
 class TableSceneSpec:
@@ -79,6 +77,7 @@ def clutter_gen(
         TableSceneSpec(has_banana=True),
     ],
     use_teleop=True,
+    starting_position=[3.0, 7.0, -1.57],
 ):
     """
     Generate a Sponana environment consistent with the provided `table_specs`.
@@ -90,14 +89,6 @@ def clutter_gen(
 
     scenario_data = """
 cameras:
-    table_top_camera:
-        name: camera0
-        depth: True
-        X_PB:
-            base_frame: camera0::base
-            translation: [0, 0, 0.15]
-            rotation: !Rpy { deg: [-90, 0, 0] }
-            
     # camera welded to the chest of Spot
     spot_camera:
         name: spot_camera
@@ -112,41 +103,10 @@ cameras:
         # Add cameras at the fixed looking locations around each table
         scenario_data += get_camera_generator_str()
 
-    # Visible camera overlooking table 2
-    scenario_data += """       
+    scenario_data += f"""       
 directives:
 - add_directives:
     file: package://sponana/scenes/three_rooms_with_tables.dmd.yaml
-
-- add_model:
-    name: camera0
-    file: package://manipulation/camera_box.sdf
-- add_weld:
-    parent: world
-    child: camera0::base
-    X_PC:
-        translation: [0, 3.75, 1.0]
-        rotation: !Rpy { deg: [-75, 0, 0] }
-"""
-
-    # Add distractor objects
-    for i, spec in enumerate(table_specs):
-        for j in range(spec.n_objects):
-            scenario_data += f"""
-- add_model:
-    name: object{j}_table{i}
-    file: package://manipulation/hydro/{ycb[spec.object_type_indices[j]]}
-"""
-
-    # Add banana and Spot
-    scenario_data += """
-- add_model:
-    name: banana
-    file: package://sponana/banana/banana.sdf
-    default_free_body_pose:
-        banana: 
-            translation: [0, 0, 1]
-            rotation: !Rpy { deg: [0, 0, 0] }
 
 - add_model:
     name: spot
@@ -156,13 +116,26 @@ directives:
         arm_sh1: [-3.1]
         arm_el0: [3.1]
         # initial position
-        base_x: [3.0]
-        base_y: [7.0]
-        base_rz: [-1.57]
+        base_x: [{starting_position[0]}]
+        base_y: [{starting_position[1]}]
+        base_rz: [{starting_position[2]}]
 
 - add_model:
     name: spot_camera
     file: package://manipulation/camera_box.sdf
+"""
+    # Add distractor objects
+    for i, spec in enumerate(table_specs):
+        for j in range(spec.n_objects):
+            scenario_data += f"""
+- add_model:
+    name: object{j}_table{i}
+    file: package://manipulation/hydro/{ycb[spec.object_type_indices[j]]}
+"""
+    scenario_data += """
+- add_model:
+    name: banana
+    file: package://sponana/banana/banana.sdf
 
 - add_weld:
     parent: spot::body
