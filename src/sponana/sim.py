@@ -71,7 +71,7 @@ class TableSceneSpec:
 def clutter_gen(
     meshcat,
     rng,
-    debug=False,
+    add_debug_logger=False,
     simulation_time=-1,
     add_fixed_cameras=True,
     table_specs=[
@@ -293,7 +293,7 @@ model_drivers:
         )
         """
 
-    if debug:
+    if add_debug_logger:
         # Connect debugger
         spot_camera = station.GetSubsystemByName("rgbd_sensor_spot_camera")
         debugger = builder.AddNamedSystem(
