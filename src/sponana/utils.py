@@ -53,6 +53,7 @@ def visualize_diagram(diagram: Diagram, max_depth: Optional[int] = None):
 
 
 def run_simulation(simulator: Simulator, meshcat: Meshcat, finish_time=2.0):
+    meshcat.Delete()
     simulator.Initialize()
     simulator.set_target_realtime_rate(1.0)
 
@@ -68,6 +69,8 @@ def run_simulation(simulator: Simulator, meshcat: Meshcat, finish_time=2.0):
         meshcat.StartRecording()
         simulator.AdvanceTo(finish_time)
         meshcat.PublishRecording()
+
+    meshcat.DeleteAddedControls()
 
 
 def set_spot_positions(
