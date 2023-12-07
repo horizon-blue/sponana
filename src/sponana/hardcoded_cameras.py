@@ -11,7 +11,7 @@ Xs_WT = [
                 [0.0, 0.0, 1.0],
             ]
         ),
-        p=[0.0, 0.0, 0.19925],
+        p=[0.0, 4.0, 0.19925],
     ),
     RigidTransform(
         R=RotationMatrix(
@@ -21,7 +21,7 @@ Xs_WT = [
                 [0.0, 0.0, 1.0],
             ]
         ),
-        p=[0.0, 4.0, 0.19925],
+        p=[0.0, 0.0, 0.19925],
     ),
     RigidTransform(
         R=RotationMatrix(

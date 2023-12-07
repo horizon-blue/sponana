@@ -8,7 +8,7 @@ directives:
       parent: world
       child: table_top0::table_top_center
       X_PC:
-        translation: [0, -4.0, 0.2]
+        translation: [0, 4.0, 0.2]
 
   - add_model:
       name: table_top1
@@ -28,7 +28,7 @@ directives:
       parent: world
       child: table_top2::table_top_center
       X_PC:
-        translation: [0, 4.0, 0.2]
+        translation: [0, -4.0, 0.2]
 
   # Walls and floor
   - add_model:
@@ -39,7 +39,7 @@ directives:
       parent: world
       child: side_wall_0::side_wall_center
       X_PC:
-        translation: [-2.0, -6.0, 0.0]
+        translation: [-2.0, 6.0, 0.0]
 
   - add_model:
       name: side_wall_1
@@ -49,7 +49,7 @@ directives:
       parent: world
       child: side_wall_1::side_wall_center
       X_PC:
-        translation: [-2.0, -2.0, 0.0]
+        translation: [-2.0, 2.0, 0.0]
 
   - add_model:
       name: side_wall_2
@@ -59,7 +59,7 @@ directives:
       parent: world
       child: side_wall_2::side_wall_center
       X_PC:
-        translation: [-2.0, 2.0, 0.0]
+        translation: [-2.0, -2.0, 0.0]
 
   - add_model:
       name: side_wall_3
@@ -69,7 +69,7 @@ directives:
       parent: world
       child: side_wall_3::side_wall_center
       X_PC:
-        translation: [-2.0, 6.0, 0.0]
+        translation: [-2.0, -6.0, 0.0]
 
   - add_model:
       name: floor
@@ -99,7 +99,7 @@ directives:
       parent: world
       child: front_wall_0::front_wall_center
       X_PC:
-        translation: [2.0, -4.0, 0.0]
+        translation: [2.0, 4.0, 0.0]
 
   - add_model:
       name: front_wall_1
@@ -119,7 +119,7 @@ directives:
       parent: world
       child: front_wall_2::front_wall_center
       X_PC:
-        translation: [2.0, 4.0, 0.0]
+        translation: [2.0, -4.0, 0.0]
 
   - add_model:
       name: starting_area
