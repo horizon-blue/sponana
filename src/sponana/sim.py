@@ -70,7 +70,6 @@ class TableSceneSpec:
 def clutter_gen(
     meshcat,
     rng,
-    add_spot=True,
     debug=False,
     simulation_time=-1,
     add_fixed_cameras=True,
@@ -89,7 +88,7 @@ def clutter_gen(
     table_specs = concretize_table_specs(table_specs, rng)
     print(table_specs)
 
-    scenario_data = f"""
+    scenario_data = """
 cameras:
     table_top_camera:
         name: camera0
@@ -97,11 +96,9 @@ cameras:
         X_PB:
             base_frame: camera0::base
             translation: [0, 0, 0.15]
-            rotation: !Rpy {{ deg: [-90, 0, 0] }}
-    """
-    if add_spot:
-        # camera welded to the chest of Spot
-        scenario_data += """
+            rotation: !Rpy { deg: [-90, 0, 0] }
+            
+    # camera welded to the chest of Spot
     spot_camera:
         name: spot_camera
         depth: True
@@ -141,20 +138,16 @@ directives:
     file: package://manipulation/hydro/{ycb[spec.object_type_indices[j]]}
 """
 
-    # Add banana
-    scenario_data += f"""
+    # Add banana and Spot
+    scenario_data += """
 - add_model:
     name: banana
     file: package://sponana/banana/banana.sdf
     default_free_body_pose:
         banana: 
             translation: [0, 0, 1]
-            rotation: !Rpy {{ deg: [0, 0, 0] }}    
-"""
+            rotation: !Rpy { deg: [0, 0, 0] }
 
-    # Spot
-    if add_spot:
-        scenario_data += """
 - add_model:
     name: spot
     file: package://manipulation/spot/spot_with_arm_and_floating_base_actuators.urdf
@@ -191,174 +184,171 @@ model_drivers:
         )
     )
 
-    if add_spot:
-        spot_plant = station.GetSubsystemByName(
-            "spot.controller"
-        ).get_multibody_plant_for_control()
-        spot_controller = builder.AddSystem(
-            SpotController(
-                spot_plant,
-                meshcat=meshcat,
-                use_teleop=use_teleop,
-            )
+    spot_plant = station.GetSubsystemByName(
+        "spot.controller"
+    ).get_multibody_plant_for_control()
+    spot_controller = builder.AddSystem(
+        SpotController(
+            spot_plant,
+            meshcat=meshcat,
+            use_teleop=use_teleop,
+        )
+    )
+    builder.Connect(
+        spot_controller.get_output_port(),
+        station.GetInputPort("spot.desired_state"),
+    )
+
+    # Add systems to diagrams
+    table_pose_extractors = [
+        add_body_pose_extractor(f"table_top{i}", "table_top_link", station, builder)
+        for i in range(3)
+    ]
+    spot_camera = station.GetSubsystemByName("rgbd_sensor_spot_camera")
+    spot_camera_config = scenario.cameras["spot_camera"]
+    camera_pose_extractor = add_camera_pose_extractor(
+        spot_camera_config, station, builder
+    )
+    banana_spotter = builder.AddNamedSystem(
+        "banana_spotter",
+        BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
+    )
+    # Banana pose (using cheat port -- placeholder for now)
+    banana_pose_extractor = add_body_pose_extractor(
+        "banana", "banana", station, builder
+    )
+
+    if not use_teleop:
+        # planner
+        planner = builder.AddNamedSystem("navigator", Navigator(meshcat=meshcat))
+
+        grasper = builder.AddNamedSystem("banana_grasper", DummyGrasper())
+        # get camera base poses from somewhere
+        camera_pose0 = np.array([1, -2.5, 0.2475])
+        camera_pose1 = np.array([1.00000000e00, 1.50392176e-12, 3.15001955e00])
+        camera_pose2 = np.array([-2, -2, 0.2475])
+        camera_pos_list = [camera_pose0, camera_pose1, camera_pose2]
+        fsm = builder.AddNamedSystem(
+            "finite_state_machine", FiniteStateMachine(camera_pos_list)
         )
         builder.Connect(
-            spot_controller.get_output_port(),
-            station.GetInputPort("spot.desired_state"),
+            station.GetOutputPort("spot.state_estimated"),
+            planner.get_spot_state_input_port(),
+        )
+        builder.Connect(
+            planner.get_base_position_output_port(),
+            spot_controller.GetInputPort("desired_base_position"),
+        )
+        builder.Connect(
+            fsm.GetOutputPort("do_rrt"),
+            planner.get_do_rrt_input_port(),
         )
 
-        # Add systems to diagrams
-        table_pose_extractors = [
-            add_body_pose_extractor(f"table_top{i}", "table_top_link", station, builder)
-            for i in range(3)
-        ]
+        builder.Connect(
+            planner.get_done_rrt_output_port(), fsm.get_camera_reached_input_port()
+        )
+
+        # Get camera and table poses
+
+        # Perception system (Banan Spotter) (placeholder for now)
+
+        builder.Connect(
+            fsm.GetOutputPort("check_banana"),
+            banana_spotter.get_check_banana_input_port(),
+        )
+
+        builder.Connect(
+            station.GetOutputPort("spot_camera.rgb_image"),
+            banana_spotter.get_color_image_input_port(),
+        )
+        builder.Connect(
+            station.GetOutputPort("spot_camera.depth_image"),
+            banana_spotter.get_depth_image_input_port(),
+        )
+        builder.Connect(
+            camera_pose_extractor.get_output_port(),
+            banana_spotter.get_camera_pose_input_port(),
+        )
+        for i, pose_extractor in enumerate(table_pose_extractors):
+            builder.Connect(
+                pose_extractor.get_output_port(),
+                banana_spotter.get_table_pose_input_port(i),
+            )
+        builder.Connect(
+            banana_pose_extractor.get_output_port(),
+            spot_controller.GetInputPort("desired_gripper_pose"),
+        )
+        # if add_finite_state_machine:
+        # import port here already wired
+        """builder.Connect(
+        planner.GetOutputPort("done_rrt"),
+        fsm.get_camera_reached_input_port())"""
+
+        builder.Connect(
+            banana_spotter.GetOutputPort("has_banana"),
+            fsm.get_see_banana_input_port(),
+        )
+        builder.Connect(
+            grasper.GetOutputPort("banana_grasped"), fsm.get_has_banana_input_port()
+        )
+
+        # output ports
+
+        # single cam pose in discretevalue(3) just the desired base pose
+        builder.Connect(
+            fsm.GetOutputPort("single_cam_pose"),
+            planner.GetInputPort("target_position"),
+        )
+        # already wired
+        """
+        builder.Connect(
+            fsm.GetOutputPort("check_banana"), 
+            banana_spotter.GetInputPort("check_banana")
+        )
+        """
+        builder.Connect(
+            fsm.GetOutputPort("grasp_banana"), grasper.GetInputPort("do_grasp")
+        )
+        # already wired
+        """
+        builder.Connect(
+            fsm.GetOutputPort("do_rrt"), 
+            planner.GetInputPort("do_rrt")
+        )
+        """
+
+    if debug:
+        # Connect debugger
         spot_camera = station.GetSubsystemByName("rgbd_sensor_spot_camera")
-        spot_camera_config = scenario.cameras["spot_camera"]
-        camera_pose_extractor = add_camera_pose_extractor(
-            spot_camera_config, station, builder
+        debugger = builder.AddNamedSystem(
+            "debug_logger",
+            DebugLogger(spot_camera, meshcat, num_tables=len(table_pose_extractors)),
         )
-        banana_spotter = builder.AddNamedSystem(
-            "banana_spotter",
-            BananaSpotter(spot_camera, num_tables=len(table_pose_extractors)),
+        builder.Connect(
+            station.GetOutputPort("spot_camera.rgb_image"),
+            debugger.get_color_image_input_port(),
         )
-        # Banana pose (using cheat port -- placeholder for now)
-        banana_pose_extractor = add_body_pose_extractor(
-            "banana", "banana", station, builder
+        builder.Connect(
+            station.GetOutputPort("spot_camera.depth_image"),
+            debugger.get_depth_image_input_port(),
         )
-
-        if not use_teleop:
-            # planner
-            planner = builder.AddNamedSystem("navigator", Navigator(meshcat=meshcat))
-
-            grasper = builder.AddNamedSystem("banana_grasper", DummyGrasper())
-            # get camera base poses from somewhere
-            camera_pose0 = np.array([1, -2.5, 0.2475])
-            camera_pose1 = np.array([1.00000000e00, 1.50392176e-12, 3.15001955e00])
-            camera_pose2 = np.array([-2, -2, 0.2475])
-            camera_pos_list = [camera_pose0, camera_pose1, camera_pose2]
-            fsm = builder.AddNamedSystem(
-                "finite_state_machine", FiniteStateMachine(camera_pos_list)
-            )
+        builder.Connect(
+            camera_pose_extractor.get_output_port(),
+            debugger.get_camera_pose_input_port(),
+        )
+        for i, pose_extractor in enumerate(table_pose_extractors):
             builder.Connect(
-                station.GetOutputPort("spot.state_estimated"),
-                planner.get_spot_state_input_port(),
+                pose_extractor.get_output_port(),
+                debugger.get_table_pose_input_port(i),
             )
-            builder.Connect(
-                planner.get_base_position_output_port(),
-                spot_controller.GetInputPort("desired_base_position"),
-            )
-            builder.Connect(
-                fsm.GetOutputPort("do_rrt"),
-                planner.get_do_rrt_input_port(),
-            )
-
-            builder.Connect(
-                planner.get_done_rrt_output_port(), fsm.get_camera_reached_input_port()
-            )
-
-            # Get camera and table poses
-
-            # Perception system (Banan Spotter) (placeholder for now)
-
-            builder.Connect(
-                fsm.GetOutputPort("check_banana"),
-                banana_spotter.get_check_banana_input_port(),
-            )
-
-            builder.Connect(
-                station.GetOutputPort("spot_camera.rgb_image"),
-                banana_spotter.get_color_image_input_port(),
-            )
-            builder.Connect(
-                station.GetOutputPort("spot_camera.depth_image"),
-                banana_spotter.get_depth_image_input_port(),
-            )
-            builder.Connect(
-                camera_pose_extractor.get_output_port(),
-                banana_spotter.get_camera_pose_input_port(),
-            )
-            for i, pose_extractor in enumerate(table_pose_extractors):
-                builder.Connect(
-                    pose_extractor.get_output_port(),
-                    banana_spotter.get_table_pose_input_port(i),
-                )
-            builder.Connect(
-                banana_pose_extractor.get_output_port(),
-                spot_controller.GetInputPort("desired_gripper_pose"),
-            )
-            # if add_finite_state_machine:
-            # import port here already wired
-            """builder.Connect(
-            planner.GetOutputPort("done_rrt"),
-            fsm.get_camera_reached_input_port())"""
-
-            builder.Connect(
-                banana_spotter.GetOutputPort("has_banana"),
-                fsm.get_see_banana_input_port(),
-            )
-            builder.Connect(
-                grasper.GetOutputPort("banana_grasped"), fsm.get_has_banana_input_port()
-            )
-
-            # output ports
-
-            # single cam pose in discretevalue(3) just the desired base pose
-            builder.Connect(
-                fsm.GetOutputPort("single_cam_pose"),
-                planner.GetInputPort("target_position"),
-            )
-            # already wired
-            """
-            builder.Connect(
-                fsm.GetOutputPort("check_banana"), 
-                banana_spotter.GetInputPort("check_banana")
-            )
-            """
-            builder.Connect(
-                fsm.GetOutputPort("grasp_banana"), grasper.GetInputPort("do_grasp")
-            )
-            # already wired
-            """
-            builder.Connect(
-                fsm.GetOutputPort("do_rrt"), 
-                planner.GetInputPort("do_rrt")
-            )
-            """
-
-        if debug:
-            # Connect debugger
-            spot_camera = station.GetSubsystemByName("rgbd_sensor_spot_camera")
-            debugger = builder.AddNamedSystem(
-                "debug_logger",
-                DebugLogger(
-                    spot_camera, meshcat, num_tables=len(table_pose_extractors)
-                ),
-            )
-            builder.Connect(
-                station.GetOutputPort("spot_camera.rgb_image"),
-                debugger.get_color_image_input_port(),
-            )
-            builder.Connect(
-                station.GetOutputPort("spot_camera.depth_image"),
-                debugger.get_depth_image_input_port(),
-            )
-            builder.Connect(
-                camera_pose_extractor.get_output_port(),
-                debugger.get_camera_pose_input_port(),
-            )
-            for i, pose_extractor in enumerate(table_pose_extractors):
-                builder.Connect(
-                    pose_extractor.get_output_port(),
-                    debugger.get_table_pose_input_port(i),
-                )
-            builder.Connect(
-                station.GetOutputPort("spot.state_estimated"),
-                debugger.get_spot_state_input_port(),
-            )
-            builder.Connect(
-                banana_pose_extractor.get_output_port(),
-                debugger.get_banana_pose_input_port(),
-            )
+        builder.Connect(
+            station.GetOutputPort("spot.state_estimated"),
+            debugger.get_spot_state_input_port(),
+        )
+        builder.Connect(
+            banana_pose_extractor.get_output_port(),
+            debugger.get_banana_pose_input_port(),
+        )
 
     diagram = builder.Build()
 
