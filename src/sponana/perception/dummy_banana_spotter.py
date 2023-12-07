@@ -10,8 +10,28 @@ import numpy as np
 
 from ..utils import plot_two_images_side_by_side
 
+"""
+    DummyBananaSpotter
 
-class BananaSpotter(LeafSystem):
+This banana spotter is a dummy.  It doesn't spot
+much at all, certainly not a banana.
+
+Input Ports:
+- color_image
+- depth_image
+- camera_pose
+- table0_pose
+- table1_pose
+- table2_pose
+
+Output Ports:
+- found_banana. 1 if banana found, else 0.
+- banana_pose. Pose of banana (if banana has been found.)
+
+State:
+- _found_banana
+"""
+class DummyBananaSpotter(LeafSystem):
     def __init__(
         self,
         camera: RgbdSensor,
@@ -41,8 +61,6 @@ class BananaSpotter(LeafSystem):
             self.DeclareAbstractInputPort(
                 f"table{i}_pose", AbstractValue.Make(RigidTransform())
             )
-
-        self._at_end = False
 
         # Output ports
         self._found_banana = self.DeclareDiscreteState(1)
