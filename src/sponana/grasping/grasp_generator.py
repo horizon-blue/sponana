@@ -21,13 +21,19 @@ from pydrake.all import (
     UniformlyRandomRotationMatrix,
 )
 
+from manipulation.meshcat_utils import AddMeshcatTriad
 from manipulation import running_as_notebook
 from manipulation.scenarios import AddFloatingRpyJoint, AddRgbdSensors, ycb
 from manipulation.utils import ConfigureParser
 
 import sponana.utils
 
-def BananaSystem():
+def BananaSystem(system_str):
+    """
+    `system_str` should be a string containing a YAML description of a system containing
+    the target surrounded by 3 cameras looking at it.
+    (E.g. package://sponana/grasping/banana_and_cameras.dmd.yaml)
+    """
     builder = DiagramBuilder()
 
     # Create the physics engine + scene graph.
@@ -35,9 +41,7 @@ def BananaSystem():
     parser = Parser(plant)
     sponana.utils.configure_parser(parser)
     ConfigureParser(parser)
-    parser.AddModelsFromUrl(
-        "package://sponana/grasping/banana_and_cameras.dmd.yaml"
-    )
+    parser.AddModelsFromString(system_str, "dmd.yaml")
     plant.Finalize()
 
     # Add a visualizer just to help us see the object.
@@ -191,7 +195,7 @@ def GraspCandidateCost(
     if query_object.HasCollisions():
         cost = np.inf
         if verbose:
-            print("Gripper is colliding with something!\n")
+            print("Gripper is collivding with something!\n")
             print(f"cost: {cost}")
         return cost
 
@@ -202,7 +206,9 @@ def GraspCandidateCost(
         distances = query_object.ComputeSignedDistanceToPoint(
             cloud.xyz(i), threshold=margin
         )
-        if distances:
+        if distances and distances[0].distance < -0.01:
+            print(f"Collision with point {i} - {cloud.xyz(i)}.  distances = {distances[0].distance}")
+            AddMeshcatTriad(meshcat, "planning/collision", length=0.1, X_PT=RigidTransform(cloud.xyz(i)))
             cost = np.inf
             if verbose:
                 print("Gripper is colliding with the point cloud!\n")
@@ -344,5 +350,3 @@ def GenerateAntipodalGraspCandidate(
         # draw_grasp_candidate(X_G, f"collision/{theta:.1f}")
 
     return np.inf, None
-
-# min z = 0.16
