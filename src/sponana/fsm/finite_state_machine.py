@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 from IPython.display import clear_output
 from pydrake.all import (
     AbstractValue,
@@ -21,9 +22,10 @@ class FiniteStateMachine(LeafSystem):
     , until banana is found.
     """
 
-    def __init__(self, camera_pos_list, time_step: float = 0.1):
+    def __init__(self, target_base_positions: np.ndarray, time_step: float = 0.1):
         super().__init__()
-        self._camera_pos_list = camera_pos_list
+        # TODO: remove this reshape
+        self._camera_pos_list = target_base_positions.reshape(-1, 3)
         self._camera_pose_ind = self.DeclareDiscreteState(1)
         self._completed = self.DeclareDiscreteState(1)
         self._next_camera_pose = self.DeclareDiscreteState(3)
@@ -32,45 +34,21 @@ class FiniteStateMachine(LeafSystem):
         self._has_banana = self.DeclareDiscreteState(1)
         self._grasp_banana = self.DeclareDiscreteState(1)
         self._do_rrt = self.DeclareDiscreteState(1)
-        ### Input ports
-        # list of camera poses for Spot to travel to in order
-        # self.DeclareAbstractInputPort("camera_poses", 3, [self.DeclareDiscreteState(3)])
-        # self.DeclareVectorInputPort("camera_poses", num_camera_pos, [self.DeclareDiscreteState(3)])
-        # spot "start state for RRT for navigator leaf system".
-        # don't know if need because navigator already gets this from the station
-        # self.DeclareVectorInputPort("spot_init_state", 20)
+
+        ### INPUT PORTS
         # check if camera has been reached (some value returned from Navigator)
         self.DeclareVectorInputPort("camera_reached", 1)
-
         # has banana been found? This should be returned from the perception module.
         self.DeclareVectorInputPort("see_banana", 1)
         # has banana been found? This should be returned from the grasping module.
         self.DeclareVectorInputPort("has_banana", 1)
 
-        ###OUTPUT PORTS
-
+        ### OUTPUT PORTS
         # next_camera_pose to be q_goal for the navigator
-        self.DeclareVectorOutputPort(
-            "single_cam_pose",
-            3,
-            self._get_next_camera_pose,
-            prerequisites_of_calc=set([self.xd_ticket()]),
-        )
-        self.DeclareVectorOutputPort(
-            "check_banana",
-            1,
-            self._get_check_banana,
-            prerequisites_of_calc=set([self.xd_ticket()]),
-        )
-
-        self.DeclareVectorOutputPort(
-            "grasp_banana",
-            1,
-            self._get_grasp_banana,
-            prerequisites_of_calc=set([self.xd_ticket()]),
-        )
-
-        self.DeclareVectorOutputPort("do_rrt", 1, self._get_do_rrt)
+        self.DeclareStateOutputPort("target_base_position", self._next_camera_pose)
+        self.DeclareStateOutputPort("check_banana", self._check_banana)
+        self.DeclareStateOutputPort("grasp_banana", self._grasp_banana)
+        self.DeclareStateOutputPort("do_rrt", self._do_rrt)
 
         self.DeclarePeriodicDiscreteUpdateEvent(
             period_sec=time_step,
@@ -79,24 +57,25 @@ class FiniteStateMachine(LeafSystem):
         )
 
     def get_camera_reached_input_port(self):
-        return self.get_input_port(0)
+        return self.GetInputPort("camera_reached")
 
     def get_see_banana_input_port(self):
-        return self.get_input_port(1)
+        return self.GetInputPort("see_banana")
 
     def get_has_banana_input_port(self):
-        return self.get_input_port(2)
+        return self.GetInputPort("has_banana")
 
-    """
-    def get_next_cam_pose_output_port(self):
-        return self.get_output_port(0)
-    def get_check_banana_output_port(self):
-        return self.get_output_port(1)
-    def get_grasp_banana_output_port(self):
-        return self.get_output_port(2)
     def get_do_rrt_output_port(self):
-        return self.get_output_port(3)
-    """
+        return self.GetOutputPort("do_rrt")
+
+    def get_check_banana_output_port(self):
+        return self.GetOutputPort("check_banana")
+
+    def get_grasp_banana_output_port(self):
+        return self.GetOutputPort("grasp_banana")
+
+    def get_target_base_position_output_port(self):
+        return self.GetOutputPort("target_base_position")
 
     def _update_do_rrt(self, context: Context):
         """
@@ -242,30 +221,3 @@ class FiniteStateMachine(LeafSystem):
             self._update_camera_ind(context, state)
             completed = self._update_completion(context)
             state.set_value(self._completed, [completed])
-
-    def _get_do_rrt(self, context, output):
-        # do_rrt = self._do_rrt.Eval(context)
-        do_rrt = int(context.get_discrete_state(self._do_rrt).get_value())
-        print("do_rrt retrieval", do_rrt)
-        output.SetFromVector([do_rrt])
-
-    def _get_check_banana(self, context, output):
-        # check_banana = self._check_banana.Eval(context)
-        check_banana = int(context.get_discrete_state(self._check_banana).get_value())
-        # check
-        print("check_banana retrieval", check_banana)
-        output.SetFromVector([check_banana])
-
-    def _get_grasp_banana(self, context, output):
-        # grasp_banana = self._grasp_banana.Eval(context)
-        grasp_banana = int(context.get_discrete_state(self._grasp_banana).get_value())
-        print("grasp_banana retrieval", grasp_banana)
-        output.SetFromVector([grasp_banana])
-
-    def _get_next_camera_pose(self, context, output):
-        # next_camera_pose = self._next_camera_pose.Eval(context)
-        next_camera_pose = int(
-            context.get_discrete_state(self._next_camera_pose).get_value()
-        )
-        print("next_camera_pose retrieval", next_camera_pose)
-        output.set_value(next_camera_pose)
