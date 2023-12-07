@@ -21,7 +21,7 @@ Xs_WT = [
                 [0.0, 0.0, 1.0],
             ]
         ),
-        p=[0.0, 2.0, 0.19925],
+        p=[0.0, 4.0, 0.19925],
     ),
     RigidTransform(
         R=RotationMatrix(
@@ -31,7 +31,7 @@ Xs_WT = [
                 [0.0, 0.0, 1.0],
             ]
         ),
-        p=[0.0, -2.0, 0.19925],
+        p=[0.0, -4.0, 0.19925],
     ),
 ]
 
@@ -82,10 +82,12 @@ X_BC = RigidTransform(
 )
 X_CB = X_BC.inverse()
 base_poses_W = [X_WC @ X_CB for X_WC in camera_poses_W]
-base_q = [
-    np.array([*X_WB.translation()[:2], RollPitchYaw(X_WB.rotation()).vector()[-1]])
-    for X_WB in base_poses_W
-]
+base_q = np.stack(
+    [
+        np.array([*X_WB.translation()[:2], RollPitchYaw(X_WB.rotation()).vector()[-1]])
+        for X_WB in base_poses_W
+    ]
+)
 
 
 def get_camera_poses_table_frame():
@@ -123,3 +125,18 @@ def get_camera_generator_str():
 """
     print(str)
     return str
+
+
+def get_base_positions_for_hardcoded_cameras() -> np.array:
+    """Return a 3 x 3 x 3 numpy array of X_WB where X_WB[i, j] is the targeted
+    base position at the j-th camera pose at table i (recall that we have 3
+    tables, each of which has 3 pre-defined camera poses)."""
+    # the talbes are separated by 4.0 unit on y axis
+    table_offset = np.array([0.0, 4.0, 0.0])
+    return np.stack(
+        [
+            base_q + table_offset,
+            base_q,
+            base_q - table_offset,
+        ]
+    )
