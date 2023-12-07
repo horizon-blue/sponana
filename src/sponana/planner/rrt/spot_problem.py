@@ -20,8 +20,8 @@ class SpotProblem(Problem):
         self._collision_checker = collision_checker
 
         cspace_ranges = [
-            Range(low=-6, high=6),  # base_x
-            Range(low=-6, high=6),  # base_y
+            Range(low=-2, high=4),  # base_x
+            Range(low=-6, high=7),  # base_y
             Range(low=-2 * np.pi, high=2 * np.pi),  # base_rz
         ]
 
@@ -29,6 +29,7 @@ class SpotProblem(Problem):
         max_steps = [0.1, 0.1, np.pi / 180 * 2]
 
         cspace_spot = ConfigurationSpace(cspace_ranges, np.linalg.norm, max_steps)
+        assert cspace_spot.valid_configuration(tuple(q_start))
 
         # Call base class constructor.
         super().__init__(
