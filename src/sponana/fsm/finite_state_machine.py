@@ -229,6 +229,7 @@ class FiniteStateMachine(LeafSystem):
     def _get_check_banana(self, context, output):
         #check_banana = self._check_banana.Eval(context)
         check_banana = int(context.get_discrete_state(self._check_banana).get_value())
+        #check
         print("check_banana retrieval", check_banana)
         output.SetFromVector([check_banana])
 
