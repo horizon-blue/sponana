@@ -1,19 +1,7 @@
 import logging
 
-import matplotlib.pyplot as plt
 import numpy as np
-from IPython.display import clear_output
-from pydrake.all import (
-    AbstractValue,
-    Context,
-    LeafSystem,
-    Meshcat,
-    RgbdSensor,
-    RigidTransform,
-    RotationMatrix,
-    SceneGraph,
-    State,
-)
+from pydrake.all import Context, LeafSystem, State
 
 logger = logging.getLogger(__name__)
 
@@ -225,3 +213,9 @@ class FiniteStateMachine(LeafSystem):
         self._update_camera_ind(context, state)
         completed = self._update_completion(context)
         self._completed = completed
+
+        logger.debug(
+            f"next_camera_pose: {next_camera_pose}, check_do_rrt: {check_do_rrt}, "
+            f"check_banana: {check_banana}, grasp_banana: {grasp_banana}, "
+            f"completed: {completed}"
+        )
