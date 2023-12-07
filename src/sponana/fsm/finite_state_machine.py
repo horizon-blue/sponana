@@ -1,3 +1,5 @@
+import logging
+
 import matplotlib.pyplot as plt
 import numpy as np
 from IPython.display import clear_output
@@ -13,7 +15,7 @@ from pydrake.all import (
     State,
 )
 
-debug_messages = True
+logger = logging.getLogger(__name__)
 
 
 class FiniteStateMachine(LeafSystem):
@@ -102,23 +104,20 @@ class FiniteStateMachine(LeafSystem):
             context.get_discrete_state(self._camera_pose_ind).get_value()
         )
         check_banana = int(context.get_discrete_state(self._check_banana).get_value())
-        if debug_messages == True:
-            print("within _update_do_rrt function check ____")
-            print("current_cam_reached:", current_cam_reached)
-            print("check_banana:", check_banana)
+        logger.debug("within _update_do_rrt function check ____")
+        logger.debug(f"current_cam_reached: {current_cam_reached}")
+        logger.debug(f"check_banana: {check_banana}")
         do_rrt = 0
         # just starting, have not reached the first camera pose, do_rrt to get to the first camera
         if current_cam_reached == 0 and current_cam_ind == 0:
-            if debug_messages == True:
-                print("first_rrt_condition")
+            logger.debug("first_rrt_condition")
             do_rrt = 1
         elif current_cam_reached == 1 and check_banana == 1:
-            if debug_messages == True:
-                print("second_rrt_condition")
+            logger.debug("second_rrt_condition")
             do_rrt = 1
         """if current_cam_reached == 0 and current_cam_ind == 0:
             if debug_messages == True:
-                print("first_rrt_condition")
+                logger.debug("first_rrt_condition")
             do_rrt = 1"""
         return do_rrt
 
@@ -163,10 +162,9 @@ class FiniteStateMachine(LeafSystem):
             context.get_discrete_state(self._camera_pose_ind).get_value()
         )
         next_camera_pose = self._camera_pos_list[current_cam_ind]
-        if debug_messages == True:
-            print("within get_camera_pose function check ______")
-            print("current_cam_ind:", current_cam_ind)
-            print("next_camera_pose:", next_camera_pose)
+        logger.debug("within get_camera_pose function check ______")
+        logger.debug(f"current_cam_ind: {current_cam_ind}")
+        logger.debug(f"next_camera_pose: {next_camera_pose}")
         return next_camera_pose
 
     def _update_check_banana(self, context: Context):
