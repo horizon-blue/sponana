@@ -17,11 +17,8 @@ class FiniteStateMachine(LeafSystem):
         # TODO: remove this reshape
         self._camera_pos_list = target_base_positions.reshape(-1, 3)
         self._camera_pose_ind = self.DeclareDiscreteState(1)
-        self._completed = self.DeclareDiscreteState(1)
         self._next_camera_pose = self.DeclareDiscreteState(3)
-        self._camera_reached = self.DeclareDiscreteState(1)
         self._check_banana = self.DeclareDiscreteState(1)
-        self._has_banana = self.DeclareDiscreteState(1)
         self._grasp_banana = self.DeclareDiscreteState(1)
         self._do_rrt = self.DeclareDiscreteState(1)
 
@@ -95,10 +92,9 @@ class FiniteStateMachine(LeafSystem):
         logger.debug("within _update_do_rrt function check ____")
         logger.debug(f"current_cam_reached: {current_cam_reached}")
         logger.debug(f"check_banana: {check_banana}")
-        do_rrt = 0
-        # just starting, have not reached the first camera pose, do_rrt to get to the first camera
-        if current_cam_reached == 0 and current_cam_ind == 0:
-            logger.debug("first_rrt_condition")
+        do_rrt = 1
+        if current_cam_reached == 0:
+            logger.debug("enable rrt to reach next camera")
             do_rrt = 1
         elif current_cam_reached == 1 and check_banana == 1:
             logger.debug("second_rrt_condition")
@@ -124,12 +120,14 @@ class FiniteStateMachine(LeafSystem):
         current_cam_reached = self.get_camera_reached_input_port().Eval(context)
         see_banana = self.get_see_banana_input_port().Eval(context)
         has_banana = self.get_has_banana_input_port().Eval(context)
+        check_banana = int(context.get_discrete_state(self._check_banana).get_value())
         current_cam_ind = int(
             context.get_discrete_state(self._camera_pose_ind).get_value()
         )
         new_cam_ind = current_cam_ind
         num_poses = len(self._camera_pos_list)
-        if current_cam_reached[0] == 1 and see_banana == 0 and has_banana == 0:
+        if current_cam_reached and check_banana and not see_banana and not has_banana:
+            logger.info("curent camera reached")
             if current_cam_ind <= num_poses - 1:
                 new_cam_ind += 1
             # none viewpoints have bananas, so do it all again?

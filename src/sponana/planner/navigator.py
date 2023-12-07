@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 import numpy as np
@@ -10,6 +11,7 @@ from .rrt import ConfigType, SpotProblem, rrt_planning
 from .utils import delete_path_visual, visualize_path
 
 default_scenario = "package://sponana/scenes/three_rooms_with_tables.dmd.yaml"
+logger = logging.getLogger(__name__)
 
 
 class Navigator(LeafSystem):
@@ -85,12 +87,8 @@ class Navigator(LeafSystem):
             delete_path_visual(self._trajectory, self._meshcat)
 
         current_position = self._get_current_position(context)
-        print(
-            "in navigator plan trajectory: print current position:",
-            current_position,
-        )
         target_position = self.get_target_position_input_port().Eval(context)
-        print("in navigator plan trajectory: print target position:", target_position)
+        logger.info(f"Generating path from {current_position} to {target_position}")
         spot_problem = SpotProblem(
             current_position, target_position, self._collision_check
         )
