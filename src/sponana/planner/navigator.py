@@ -2,7 +2,7 @@ from typing import Optional
 
 import numpy as np
 from manipulation.meshcat_utils import AddMeshcatTriad
-from manipulation.station import MakeHardwareStation, load_scenario
+from manipulation.station import load_scenario
 from pydrake.all import (
     Context,
     LeafSystem,
@@ -15,7 +15,7 @@ from pydrake.all import (
 )
 
 from ..controller import q_nominal_arm
-from ..utils import configure_parser, set_spot_positions
+from ..utils import MakeSponanaHardwareStation, set_spot_positions
 from .rrt import ConfigType, SpotProblem, rrt_planning
 
 default_scenario = "package://sponana/scenes/three_rooms_with_tables.dmd.yaml"
@@ -141,7 +141,7 @@ directives:
 
 - add_model:
     name: spot
-    file: package://manipulation/spot/spot_with_arm_and_floating_base_actuators.urdf
+    file: package://sponana/spot.urdf
 
 model_drivers:
     spot: !InverseDynamicsDriver {{}}
@@ -149,9 +149,7 @@ model_drivers:
         scenario = load_scenario(data=scenario_data)
         # Disable creation of new Meshcat instance
         scenario.visualization.enable_meshcat_creation = False
-        self._station = MakeHardwareStation(
-            scenario, parser_preload_callback=configure_parser
-        )
+        self._station = MakeSponanaHardwareStation(scenario)
         self._plant = self._station.GetSubsystemByName("plant")
         self._scene_graph = self._station.GetSubsystemByName("scene_graph")
 

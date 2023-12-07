@@ -33,7 +33,7 @@ def configure_parser(parser: Parser):
     parser.package_map().Add("sponana", str(models_path.resolve()))
 
 
-def MakeSponanaHardwareStation(scenario, meshcat):
+def MakeSponanaHardwareStation(scenario, meshcat: Meshcat = None):
     return MakeHardwareStation(
         scenario,
         meshcat,

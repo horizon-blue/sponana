@@ -40,8 +40,5 @@ directives:
 """
 
 scenario = load_scenario(data=scenario_data)
-# the callback below is necessary to register Sponana models to the package index
-station = MakeHardwareStation(
-    scenario, meshcat, parser_preload_callback=sponana.utils.configure_parser
-)
+station = sponana.utils.MakeSponanaHardwareStation(scenario, meshcat)
  ```

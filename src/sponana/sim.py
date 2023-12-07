@@ -96,7 +96,7 @@ directives:
 
 - add_model:
     name: spot
-    file: package://manipulation/spot/spot_with_arm_and_floating_base_actuators.urdf
+    file: package://sponana/spot.urdf
     default_joint_positions:
         # fold the arm
         arm_sh1: [-3.1]
@@ -138,9 +138,7 @@ model_drivers:
     builder = DiagramBuilder()
     scenario = load_scenario(data=scenario_data)
     station = builder.AddSystem(
-        MakeHardwareStation(
-            scenario, meshcat, parser_preload_callback=sponana.utils.configure_parser
-        )
+        sponana.utils.MakeSponanaHardwareStation(scenario, meshcat)
     )
 
     spot_plant = station.GetSubsystemByName(

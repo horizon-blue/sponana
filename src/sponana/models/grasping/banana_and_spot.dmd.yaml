@@ -16,7 +16,7 @@ directives:
 
 - add_model:
     name: spot
-    file: package://sponana/grasping/spot.urdf
+    file: package://sponana/spot.urdf
     default_joint_positions:
         # fold the arm
         arm_sh1: [-3.1]
