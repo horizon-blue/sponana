@@ -7,7 +7,7 @@ from pydrake.all import Context, LeafSystem, Meshcat, MultibodyPlant, SceneGraph
 
 from ..controller import q_nominal_arm
 from ..utils import MakeSponanaHardwareStation, set_spot_positions
-from .rrt import ConfigType, SpotProblem, rrt_planning, calc_intermediate_qs_wo_collision
+from .rrt import ConfigType, SpotProblem, rrt_planning
 from .utils import delete_path_visual, visualize_path
 
 default_scenario = "package://sponana/scenes/three_rooms_with_tables.dmd.yaml"
