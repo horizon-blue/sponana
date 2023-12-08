@@ -74,7 +74,8 @@ def rrt_planning(
                 n1 = path[n1_ind]
                 while rrt_tools.calc_intermediate_qs_wo_collision(n0, n1)[-1] == n1 and (n1_ind+1) < goal_node_ind:
                     n1_ind += 1
-                new_path.append(n0, n1)
+                new_path.append(n0)
+                new_path.append(n1)
                 n0_ind = n1_ind
                 n1_ind = n1_ind + 1 
                 return new_path
