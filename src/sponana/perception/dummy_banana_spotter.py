@@ -38,7 +38,8 @@ class DummyBananaSpotter(LeafSystem):
         num_tables: int = 0,
         time_step: float = 0.1,
         plot_camera_input: bool = False,
-        table_specs: list = None
+        table_specs: list = None,
+        *kwargs
     ):
         super().__init__()
         self._camera = camera
