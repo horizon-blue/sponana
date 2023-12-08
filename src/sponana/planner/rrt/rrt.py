@@ -49,7 +49,7 @@ def rrt_planning(
         # TODO: if this is not robut enough, we may want to expand
         # the number of iterations per try, as we try more times and
         # repeatedly fail to solve it in this number of RRT iterations
-        path = []
+
         for _ in range(max_iterations_per_try):
             q_sample = rrt_tools.sample_node_in_configuration_space()
             if np.random.rand() < prob_sample_q_goal:
