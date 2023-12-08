@@ -60,9 +60,9 @@ def rrt_planning(
             for q_val in intermediates:
                 last_node = rrt_tools.grow_rrt_tree(last_node, q_val)
                 if rrt_tools.node_reaches_goal(last_node):
-                    path = rrt_tools.backup_path_from_node(last_node)
+                    return rrt_tools.backup_path_from_node(last_node)
                     #https://www.cs.cmu.edu/~maxim/classes/robotplanning/lectures/RRT_16350_sp23.pdf
-                    
+                    """
                     if len(path) != 0:
                         new_path = []
                         n0_ind = 0 # start
@@ -79,4 +79,5 @@ def rrt_planning(
                             n0_ind = n1_ind
                             n1_ind = n1_ind + 1 
                             return new_path
+                    """
     return []
