@@ -39,14 +39,14 @@ def rrt_planning(
 
     return None"""
 
-    for _ in range(max_n_tries):
+    for i in range(max_n_tries):
         rrt_tools = RRT_tools(problem)
         q_goal = problem.goal
 
-        # TODO: if this is not robut enough, we may want to expand
-        # the number of iterations per try, as we try more times and
-        # repeatedly fail to solve it in this number of RRT iterations
-        for _ in range(max_iterations_per_try):
+        n_iters = max_iterations_per_try
+        if i > 6:
+            n_iters = 3 * n_iters
+        for _ in range(n_iters):
             q_sample = rrt_tools.sample_node_in_configuration_space()
             if np.random.rand() < prob_sample_q_goal:
                 q_sample = q_goal

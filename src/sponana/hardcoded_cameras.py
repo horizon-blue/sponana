@@ -67,7 +67,7 @@ camera_poses_W = [
         p=[-0.35091572089593653, 0.4881919030929625, 0.495],
     ),
 ]
-table_pose = Xs_WT[0]  # Table these camera poses are around
+table_pose = Xs_WT[1]  # Table these camera poses are around
 
 # convert camera pose back to base joint positions
 X_BC = RigidTransform(

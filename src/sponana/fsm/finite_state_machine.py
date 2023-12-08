@@ -217,7 +217,7 @@ class FiniteStateMachine(LeafSystem):
         p1_is_max = p_pose1 == max_p
 
         at_last_table_and_not_done = (current_table_idx == n_tables - 1 and max_p > 0)
-        if at_last_table_and_not_done or max_p > 0.05:
+        if at_last_table_and_not_done or max_p > 0.02:
             # Go to the best remaining pose at this table.
             state.set_value(self._looking_inds, [current_table_idx, 1 if p1_is_max else 2])
             return True

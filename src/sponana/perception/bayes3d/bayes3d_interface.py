@@ -186,7 +186,7 @@ def b3d_init(
                 table_pose, obs_img, grid_param_sequence, center_contact_params, [target_category],
                 n_objs_to_add=1, possible_faces=[3]
             )
-        logging.info(f"Score with target object: {with_obj_score}")
+        logging.debug(f"Score with target object: {with_obj_score}")
 
         # If the score with the target object is sufficiently higher than the score without it,
         # then we register the target object as visible.
@@ -407,7 +407,7 @@ def b3d_is_visible(
         external_pose_to_b3d_pose=None,
         b3d_pose_to_external_pose=None
     ):
-    logging.info("In b3d_is_visible_vectorized")
+    logging.debug("In b3d_is_visible_vectorized")
 
     X_WC = external_pose_to_b3d_pose(camera_pose)
     X_CW = _b3d.b.t3d.inverse_pose(X_WC)

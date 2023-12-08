@@ -50,8 +50,11 @@ class TableBeliefState:
     def is_initialized(self):
         return self.known_poses is not None
     
+    def has_banana(self):
+        return self.is_initialized() and _has_banana(self.known_poses)
+
     def n_possible_target_poses(self):
-        if self.target_poses is None:
+        if self.possible_target_poses is None:
             # If we haven't looked at this table,
             # all the poses are possible.
             # So to keep everything on the right scale,
@@ -59,12 +62,16 @@ class TableBeliefState:
             # nothing is ruled out.
             return b3d.get_max_n_possible_poses()
         else:
-            return self.target_poses.shape[0]
+            return self.possible_target_poses.shape[0]
 
     def n_visible_at_pose(self, pose_idx):
         if pose_idx == 1:
+            logger.debug(f"pose1_visibility_mask = {self.pose1_visibility_mask}")
+            logger.debug(f"sum(pose1_visibility_mask) = {sum(self.pose1_visibility_mask)}")
             return sum(self.pose1_visibility_mask)
         elif pose_idx == 2:
+            logger.debug(f"pose2_visibility_mask = {self.pose2_visibility_mask}")
+            logger.debug(f"sum(pose2_visibility_mask) = {sum(self.pose2_visibility_mask)}")
             return sum(self.pose2_visibility_mask)
         else:
             raise AssertionError("Invalid pose idx.")
@@ -72,25 +79,29 @@ class TableBeliefState:
 def get_p_visible_at_pose(table_belief_states, table_idx, camera_idx):
     assert camera_idx == 1 or camera_idx == 2
 
-    if any([_has_banana(bs.known_poses) for bs in table_belief_states]):
+    if any([bs.has_banana() for bs in table_belief_states]):
         # If we know exactly where the banana is, return 0 or 1.
         bs = table_belief_states[table_idx]
-        if _has_banana(bs):
+        if bs.has_banana():
             vis_mask = bs.pose1_visibility_mask if camera_idx == 1 else bs.pose2_visibility_mask
             assert len(vis_mask) == 1, "Should only have 1 possibility at this point."
             if any(vis_mask):
                 logger.info("p_pose[{table_idx}, {camera_idx}] = 1 [Known Pose]")
                 return 1.
-            else:
-                logger.info("p_pose[{table_idx}, {camera_idx}] = 0 [Known Pose]")
-                return 0.
+        logger.info("p_pose[{table_idx}, {camera_idx}] = 0 [Known Pose]")
+        return 0.
 
     # Else, we have uncertainty about the banana pose and need to do some probability
     # calculations.
 
+    logger.debug(f"evaluating p_pose[{table_idx}, {camera_idx}]")
+
     # P(banana on this table)
     possibility_counts = [bs.n_possible_target_poses() for bs in table_belief_states]
     p_at_table = possibility_counts[table_idx] / sum(possibility_counts)
+    logger.debug(f"--> p_at_table = {p_at_table}")
+    if p_at_table == 0:
+        return 0
 
     # P(banana visible at pose 1 or pose 2 | banana on this table)
     bs = table_belief_states[table_idx]
@@ -98,17 +109,19 @@ def get_p_visible_at_pose(table_belief_states, table_idx, camera_idx):
     n_visible_pose2 = bs.n_visible_at_pose(2)
     n_visible = n_visible_pose1 + n_visible_pose2
     p_visible_if_at_table = n_visible/bs.n_possible_target_poses()
+    logger.debug(f"--> p_visible_if_at_table = {p_visible_if_at_table}")
+    if p_visible_if_at_table == 0:
+        return 0
     
     # P(banana visible at pose X | banana visible at pose 1 or pose 2)
-    p_visible_at_idx_if_visible = (n_visible_pose1 if camera_idx == 1 else n_visible_pose2) / n_visible
-    
+    n_visible_at_idx = n_visible_pose1 if camera_idx == 1 else n_visible_pose2
+    p_visible_at_idx_if_visible = n_visible_at_idx / n_visible
+    logger.debug(f"--> p_visible_at_idx_if_visible = {p_visible_at_idx_if_visible}")
+
     # P(banana visible at pose X)
     p_visible_at_idx = p_at_table * p_visible_if_at_table * p_visible_at_idx_if_visible
     
-    logger.info("p_pose[{table_idx}, {camera_idx}] = {p_visible_at_idx}")
-    logger.info("--> p_at_table = {p_at_table}")
-    logger.info("--> p_visible_at_idx_if_visible = {p_visible_at_idx_if_visible}")
-    logger.info("--> p_visible_at_idx = {p_visible_at_idx}")
+    logger.info(f"p_pose[{table_idx}, {camera_idx}] = {p_visible_at_idx}")
 
     return p_visible_at_idx
 
@@ -294,13 +307,13 @@ class BananaSpotterBayes3D(LeafSystem):
             for table_pose in table_poses
         ]
         current_table_idx = distances.index(min(distances))
-        logger.info(f"Currently at table {current_table_idx}.")
+        logger.debug(f"Currently at table {current_table_idx}.")
         return current_table_idx
     
     def _get_images(self, context: Context, state: State):
         color_image = self.get_color_image_input_port().Eval(context).data
         depth_image = self.get_depth_image_input_port().Eval(context).data
-        logger.info("Got images.")
+        logger.debug("Got images.")
         if self._plot_camera_input:
             plot_two_images_side_by_side(color_image, depth_image)
             logger.debug("Displayed images.")
@@ -332,7 +345,7 @@ class BananaSpotterBayes3D(LeafSystem):
             depth_image[:, :, 0]
         )
         if not bs.is_initialized():
-            logger.info(f"Bayes3D init on table {current_table_idx}")
+            logger.debug(f"Bayes3D init on table {current_table_idx}")
             (known_poses, possible_poses) = b3d.b3d_init(
                 camera_image,
                 _category_string_list(table_spec),
@@ -344,7 +357,7 @@ class BananaSpotterBayes3D(LeafSystem):
                 b3d_pose_to_external_pose=b3d_pose_to_external_pose
             )
         else:
-            logger.info(f"Bayes3D update on table {current_table_idx}")
+            logger.debug(f"Bayes3D update on table {current_table_idx}")
             (known_poses, possible_poses) = b3d.b3d_update(
                 bs.known_poses, bs.possible_target_poses, camera_image, table_pose_world_frame, 'banana',
                 scaling_factor=0.2,
@@ -354,6 +367,11 @@ class BananaSpotterBayes3D(LeafSystem):
         # logger.debug(f"known poses: {known_poses} | possible_pose type: {type(possible_poses)}")
         logger.info(f"--> known pose types: {[c for (c, _, _) in known_poses]} | + {len(possible_poses)} possible banana poses")
         
+        logger.debug(f"current_table_idx = {current_table_idx}")
+        logger.debug(f"self._camera_poses = {self._camera_poses}")
+        logger.debug(f"Cam 1 pose: {self._camera_poses[current_table_idx][1]}")
+        logger.debug(f"Cam 2 pose: {self._camera_poses[current_table_idx][2]}")
+        logger.debug(f"Current camera pose: {self.get_camera_pose_input_port().Eval(context)}")
         pose1_visibility_mask = b3d.b3d_is_visible(
             known_poses, possible_poses,
             self._camera_poses[current_table_idx][1],
@@ -361,7 +379,7 @@ class BananaSpotterBayes3D(LeafSystem):
             external_pose_to_b3d_pose=external_pose_to_b3d_pose,
             b3d_pose_to_external_pose=b3d_pose_to_external_pose
         )
-        logger.info(f"--> Got pose 1 visibility mask.")
+        logger.debug(f"--> Got pose 1 visibility mask.  Sum = {sum(pose1_visibility_mask)}")
         pose2_visibility_mask = b3d.b3d_is_visible(
             known_poses, possible_poses,
             self._camera_poses[current_table_idx][2],
@@ -369,9 +387,9 @@ class BananaSpotterBayes3D(LeafSystem):
             external_pose_to_b3d_pose=external_pose_to_b3d_pose,
             b3d_pose_to_external_pose=b3d_pose_to_external_pose
         )
-        logger.info(f"--> Got pose 2 visibility mask.")
+        logger.debug(f"--> Got pose 2 visibility mask.  Sum = {sum(pose2_visibility_mask)}")
         new_bs = TableBeliefState(known_poses, possible_poses, pose1_visibility_mask, pose2_visibility_mask)
-        logger.info(f"--> belief state constructed.")
+        logger.debug(f"--> belief state constructed.")
 
         new_belief_states = [
             old_bs if i != current_table_idx else new_bs
@@ -389,12 +407,12 @@ class BananaSpotterBayes3D(LeafSystem):
             self._set_banana_pose(state, banana_pose_drake)
             self._set_found_banana(state, 1)
 
-            logger.info("---> Setting banana found = true.")
-            logger.info(f"---> Bayes3D banana pose: {banana_pose_b3d}")
-            logger.info(f"---> Inferred Drake banana pose: {banana_pose_drake}")
+            logger.debug("---> Setting banana found = true.")
+            logger.debug(f"---> Bayes3D banana pose: {banana_pose_b3d}")
+            logger.debug(f"---> Inferred Drake banana pose: {banana_pose_drake}")
 
         state.get_mutable_discrete_state().set_value(self._perception_completed, [1])
-        logger.info("Set perception_completed to true")
+        logger.debug("Set perception_completed to true")
 
 def _has_banana(known_poses):
     for (category_name, pose, face) in known_poses:
