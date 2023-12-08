@@ -87,12 +87,29 @@ def get_plane_inliers(point_cloud, plane_pose, threshold):
     ) / np.sqrt(plane[0] ** 2 + plane[1] ** 2 + plane[2] ** 2)
     return np.where(np.abs(dist_pt) <= threshold)[0]
 
-def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_frame=None):    
+_RENDERER_ALREADY_SETUP = False
+_RENDERER_INTRINSICS = None
+_MESHES_ADDED_TO_RENDERER = False
+def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_frame=None, table_dims=None):
+    global _RENDERER_ALREADY_SETUP
+    global _RENDERER_INTRINSICS
+    global _MESHES_ADDED_TO_RENDERER
+
     rgbd_scaled_down = b.RGBD.scale_rgbd(rgbd, scaling_factor)
     logger.debug("rgbd scaled down")
     logger.debug(f"rgbd.scaeld_down intrinsics: {rgbd_scaled_down.intrinsics}")
-    b.setup_renderer(rgbd_scaled_down.intrinsics)
-    logger.debug("setup renderer")
+
+    if not _RENDERER_ALREADY_SETUP:
+        b.setup_renderer(rgbd_scaled_down.intrinsics)
+        _RENDERER_INTRINSICS = rgbd_scaled_down.intrinsics
+        _RENDERER_ALREADY_SETUP = True
+        logger.debug("setup renderer")
+    else:
+        assert rgbd_scaled_down.intrinsics == _RENDERER_INTRINSICS
+
+    if not _MESHES_ADDED_TO_RENDERER:
+        add_meshes_to_renderer(table_dims=table_dims)
+        _MESHES_ADDED_TO_RENDERER = True
 
     cloud = b.unproject_depth(rgbd_scaled_down.depth, rgbd_scaled_down.intrinsics).reshape(-1,3)
     too_big_indices = np.where(cloud[:,2] > 1.2)

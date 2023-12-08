@@ -127,13 +127,13 @@ class FiniteStateMachine(LeafSystem):
             # Running perception
             logger.debug("Running perception...")
             if self._perception_completed(context, state):
-                logger.debug("--> Perception completed.")
+                logger.info("--> Perception completed.")
                 if self._banana_visible(context, state):
-                    logger.debug("----> Banana visible.")
+                    logger.info("----> Banana visible.")
                     # Grasp the banana
                     self._set_current_action(context, state, 3)
                 else:
-                    logger.debug("----> Banana not visible.")
+                    logger.info("----> Banana not visible.")
                     still_not_done = self._increment_pose_idx(context, state)
                     if not still_not_done:
                         # Went to last position and still don't see anything.  Fail!

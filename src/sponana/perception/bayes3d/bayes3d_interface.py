@@ -95,11 +95,8 @@ def b3d_init(
     rgbd = get_rgbd(camera_image, external_pose_to_b3d_pose)
     logger.debug(f"Got RGBD. scaling_factor={scaling_factor}.  table_pose_in_cam_frame={X_CT}")
     rgbd_scaled_down, obs_img, table_pose_ransac, cloud, depth_im = _b3d.scale_remove_and_setup_renderer(
-        rgbd, scaling_factor=scaling_factor, table_pose_in_cam_frame=X_CT)
+        rgbd, scaling_factor=scaling_factor, table_pose_in_cam_frame=X_CT, table_dims=table_dims)
     logger.debug("Scaled successfully.")
-    logger.debug(f"table dims = {table_dims}")
-    _b3d.add_meshes_to_renderer(table_dims=table_dims)
-
     logger.debug("Setup renderer.")
 
     # Visualize preprocessed observation point cloud, and the table.
@@ -287,7 +284,6 @@ def b3d_update(
     # preprocess data
     rgbd = get_rgbd(camera_image, external_pose_to_b3d_pose)
     rgbd_scaled_down, obs_img, table_pose_ransac, cloud, depth_im = _b3d.scale_remove_and_setup_renderer(rgbd, scaling_factor=scaling_factor, table_pose_in_cam_frame=X_CT)
-    _b3d.add_meshes_to_renderer()
 
     if show_meshcat:
         _b3d.b.clear()

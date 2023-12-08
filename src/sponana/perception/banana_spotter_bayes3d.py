@@ -39,7 +39,7 @@ class TableBeliefState:
     Belief state about the contents of a single table.
     """
     known_poses: list = None
-    possible_banana_poses: list = None
+    possible_target_poses: list = None
 
     def is_initialized(self):
         return self.known_poses is not None
@@ -242,19 +242,20 @@ class BananaSpotterBayes3D(LeafSystem):
                 'banana',
                 table_spec.n_objects + 1, # objects + possible banana
                 (table_pose_world_frame, 0.49, 0.63, 0.015),
-                scaling_factor=0.1,
+                scaling_factor=0.2,
                 external_pose_to_b3d_pose=external_pose_to_b3d_pose,
                 b3d_pose_to_external_pose=b3d_pose_to_external_pose
             )
         else:
             logger.info(f"Bayes3D update on table {current_table_idx}")
             (known_poses, possible_poses) = b3d.b3d_update(
-                bs.known_poses, bs.possible_poses, camera_image, table_pose_world_frame, 'banana',
-                scaling_factor=0.1,
+                bs.known_poses, bs.possible_target_poses, camera_image, table_pose_world_frame, 'banana',
+                scaling_factor=0.2,
                 external_pose_to_b3d_pose=external_pose_to_b3d_pose,
                 b3d_pose_to_external_pose=b3d_pose_to_external_pose
             )
-        logger.info(f"--> known pose types: {[c for (c, _) in known_poses]} | + {len(possible_poses)} possible banana poses")
+        # logger.debug(f"known poses: {known_poses} | possible_pose type: {type(possible_poses)}")
+        logger.info(f"--> known pose types: {[c for (c, _, _) in known_poses]} | + {len(possible_poses)} possible banana poses")
         
         new_bs = TableBeliefState(known_poses, possible_poses)
 
@@ -273,13 +274,13 @@ class BananaSpotterBayes3D(LeafSystem):
         logger.info("Set perception_completed to true")
 
 def _has_banana(known_poses):
-    for (category_name, pose) in known_poses:
+    for (category_name, pose, face) in known_poses:
         if category_name == "banana":
             return True
     return False
 
 def _get_banana_pose(known_poses):
-    for (category_name, pose) in known_poses:
+    for (category_name, pose, face) in known_poses:
         if category_name == "banana":
             return pose
     
@@ -295,6 +296,7 @@ def _category_string_list(table_spec):
 
     # first 4 characters are the ycb index; strip these away
     cats = [ycb[i][4:] for i in table_spec.object_type_indices]
+    cats = [cat.split(".")[0] for cat in cats]
     
     if "banana" not in cats:
         cats.append("banana")
