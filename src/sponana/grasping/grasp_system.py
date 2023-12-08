@@ -41,6 +41,8 @@ from sponana.grasping.grasp_generator import (
     ScoreSystem,
     get_unified_point_cloud,
 )
+import logging
+logger = logging.getLogger(__name__)
 
 # Transform from the gripper frame (as in the WSG) to the arm frame
 # (the frame of the arm link in the Spot URDF)
@@ -217,6 +219,7 @@ class Grasper(LeafSystem):
         self._set_init_time(state, time)
 
         banana_pose = self.get_banana_pose_input_port().Eval(context)
+        logger.info(f"Banana pose: {banana_pose}")
 
         X_Gs = sample_grasps(
             self.target_obj_path,

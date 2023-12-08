@@ -11,6 +11,7 @@ import numpy as np
 import sponana.perception.bayes3d.bayes3d_interface as b3d
 from manipulation.scenarios import ycb
 
+from .utils import b3d_banana_pose_to_drake
 from ..utils import plot_two_images_side_by_side
 
 from typing import NamedTuple
@@ -151,7 +152,7 @@ class BananaSpotterBayes3D(LeafSystem):
         return self.GetInputPort(f"table{table_index}_pose")
 
     def get_banana_pose_output_port(self):
-        return self.GetOutputPort("baana_pose")
+        return self.GetOutputPort("banana_pose")
 
     def get_found_banana_output_port(self):
         return self.GetOutputPort("found_banana")
@@ -266,9 +267,18 @@ class BananaSpotterBayes3D(LeafSystem):
         self._set_table_belief_states(state, new_belief_states)
 
         if _has_banana(known_poses):
-            logger.info("---> Setting banana found = true.")
-            self._set_banana_pose(state, _get_banana_pose(known_poses))
+            banana_pose_b3d = _get_banana_pose(known_poses)
+
+            # Somehow the way the poses correspond to the meshes is different in Drake
+            # and Bayes3D.  This is the transform that takes the pose b3d says the banana
+            # is at, and converts it to the pose Drake should think the banana is at.
+            banana_pose_drake = b3d_banana_pose_to_drake(banana_pose_b3d)
+            self._set_banana_pose(state, banana_pose_drake)
             self._set_found_banana(state, 1)
+
+            logger.info("---> Setting banana found = true.")
+            logger.info(f"---> Bayes3D banana pose: {banana_pose_b3d}")
+            logger.info(f"---> Inferred Drake banana pose: {banana_pose_drake}")
 
         state.get_mutable_discrete_state().set_value(self._perception_completed, [1])
         logger.info("Set perception_completed to true")

@@ -254,7 +254,7 @@ model_drivers:
 
         # Grasper (banana pose -> gripper joint positions)
         builder.Connect(
-            banana_pose_extractor.get_output_port(),
+            banana_spotter.get_banana_pose_output_port(),
             grasper.get_banana_pose_input_port(),
         )
         builder.Connect(
