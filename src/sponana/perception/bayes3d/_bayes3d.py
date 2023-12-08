@@ -24,6 +24,9 @@ import pickle
 from bayes3d.neural.segmentation import carvekit_get_foreground_mask
 import genjax
 import pyransac3d
+import logging
+
+logger = logging.getLogger(__name__)
 
 def plane_pose_to_plane_eq(plane_pose):
     """
@@ -86,8 +89,10 @@ def get_plane_inliers(point_cloud, plane_pose, threshold):
 
 def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_frame=None):    
     rgbd_scaled_down = b.RGBD.scale_rgbd(rgbd, scaling_factor)
-
+    logger.debug("rgbd scaled down")
+    logger.debug(f"rgbd.scaeld_down intrinsics: {rgbd_scaled_down.intrinsics}")
     b.setup_renderer(rgbd_scaled_down.intrinsics)
+    logger.debug("setup renderer")
 
     cloud = b.unproject_depth(rgbd_scaled_down.depth, rgbd_scaled_down.intrinsics).reshape(-1,3)
     too_big_indices = np.where(cloud[:,2] > 1.2)
@@ -96,13 +101,18 @@ def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_
     too_small_indices = np.where(cloud[:,2] < 0.1)
     cloud = cloud.at[too_small_indices, :].set(np.nan)
 
+    logger.debug("setup clouds")
+
     # if table_pose_in_cam_frame is None:
     if table_pose_in_cam_frame is None:
+        logger.debug("finding plane")
         table_pose, inliers = find_plane(np.array(cloud), 0.01)
     else:
+        logger.debug("getting inliers")
         table_pose = table_pose_in_cam_frame
         inliers = get_plane_inliers(np.array(cloud), table_pose, 0.01)
     camera_pose = jnp.eye(4)
+    logger.debug("updating table pose")
     table_pose_in_cam_frame = b.t3d.inverse_pose(camera_pose) @ table_pose
     if table_pose_in_cam_frame[2,2] > 0:
         table_pose = table_pose @ b.t3d.transform_from_axis_angle(jnp.array([1.0, 0.0, 0.0]), jnp.pi)
@@ -118,8 +128,9 @@ def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_
     x_indices, y_indices = np.unravel_index(too_small_indices, depth_im.shape)
     depth_im = depth_im.at[x_indices, y_indices].set(b.RENDERER.intrinsics.far)
 
+    logger.debug("about to unproject depth")
     obs_img = b.unproject_depth_jit(depth_im, rgbd_scaled_down.intrinsics)
-
+    logger.debug("depth unprojected")
     return rgbd_scaled_down, obs_img, table_pose, cloud, depth_im
 
 def add_meshes_to_renderer(

@@ -21,7 +21,7 @@ from sponana.fsm import FiniteStateMachine
 from sponana.grasping import Grasper
 from sponana.hardcoded_cameras import get_camera_generator_str
 from sponana.perception import (
-    BananaSpotter,
+    BananaSpotterBayes3D,
     add_body_pose_extractor,
     add_camera_pose_extractor,
 )
@@ -171,7 +171,7 @@ model_drivers:
     )
     banana_spotter = builder.AddNamedSystem(
         "banana_spotter",
-        BananaSpotter(
+        BananaSpotterBayes3D(
             spot_camera,
             num_tables=len(table_pose_extractors),
             plot_camera_input=plot_camera_input,

@@ -6,6 +6,8 @@ import logging
 import numpy as np
 import copy
 
+logger = logging.getLogger(__name__)
+
 def xy_on_table(xyz_T, table_length, table_width):
     x = xyz_T[0]
     y = xyz_T[1]
@@ -71,6 +73,8 @@ def b3d_init(
             in the external pose representation
     """
 
+    logger.debug("In bayes3d_init.")
+
     # Get the table dimensions, and the table pose in the camera frame.
     _CENTERED_TABLE_POSE_W, table_width, table_length, table_thickness = table_info
     CENTERED_TABLE_POSE_W = external_pose_to_b3d_pose(_CENTERED_TABLE_POSE_W)
@@ -83,13 +87,20 @@ def b3d_init(
     X_CT = X_CW @ X_WT # Top of table in camera frame
     table_pose = X_CT
 
+    logger.debug("Got table pose.")
+
     # Set up Bayes3D.  Construct the bayes3d rgbd object, scale it down
     # so we have small enough point clouds to run inference on, and set up
     # the renderer.
     rgbd = get_rgbd(camera_image, external_pose_to_b3d_pose)
+    logger.debug(f"Got RGBD. scaling_factor={scaling_factor}.  table_pose_in_cam_frame={X_CT}")
     rgbd_scaled_down, obs_img, table_pose_ransac, cloud, depth_im = _b3d.scale_remove_and_setup_renderer(
         rgbd, scaling_factor=scaling_factor, table_pose_in_cam_frame=X_CT)
+    logger.debug("Scaled successfully.")
+    logger.debug(f"table dims = {table_dims}")
     _b3d.add_meshes_to_renderer(table_dims=table_dims)
+
+    logger.debug("Setup renderer.")
 
     # Visualize preprocessed observation point cloud, and the table.
     if show_meshcat:
@@ -100,12 +111,16 @@ def b3d_init(
         _b3d.b.show_trimesh("table", _b3d.b.RENDERER.meshes[_b3d.category_name_to_renderer_idx('table')])
         _b3d.b.set_pose("table", X_CW @ X_WTcenter)
 
+    logger.debug("Setup meshcat.")
+
     # Get grid enumeration schedule, based on the table size.
     center_contact_params = jnp.array([0., 0., 0.])
     grid_width = max(table_width, table_length)
     grid_param_sequence = get_grid_param_sequence(grid_width)
     min_xy = jnp.array([-table_width/2, -table_length/2])
     max_xy = jnp.array([table_width/2, table_length/2])
+
+    logger.debug("Setup grid params.")
 
     if n_objects > 1:
         # Fit N-1 objects
@@ -129,9 +144,11 @@ def b3d_init(
                 cps=contact_params, indices=category_indices, faces=contact_faces,
                 **kwargs
             )
+        logger.debug("init inference complete")
     else:
         contact_params, category_indices, poses_C, no_obj_score = jnp.zeros((0,3)), jnp.zeros((0,)), jnp.zeros((0,4,4)), 0.
         target_fit = False
+        logger.debug("No init inference needed.")
 
     # Visualize the fitted objects
     if show_meshcat:
@@ -151,6 +168,8 @@ def b3d_init(
             for i in range(cps.shape[0]):
                 if i % 4 == 0:
                     _b3d.b.show_pose(f"grid pose {i}", poses[i, ...])
+
+    logger.debug("Meshcat display done.")
 
     if not target_fit:
         # Try fitting the target object
@@ -174,12 +193,16 @@ def b3d_init(
         if causes_improvement and on_table:
             contact_params, category_indices, contact_faces, poses_C = updated_contact_params, updated_category_indices, updated_contact_faces, updated_poses_C
     
+        logger.debug("Attempted to fit target.")
+
         # Visualize the best fit target location (whether or not we thought it was good enough
         # to register as visible).  (If we did not register it as visible, then the best fit
         # will probably be a meaningless pose.)
         if show_meshcat:
             _b3d.b.show_trimesh("best-fit target location", _b3d.b.RENDERER.meshes[updated_category_indices[-1]])
             _b3d.b.set_pose("best-fit target location", updated_poses_C[-1])
+
+        logger.debug("--> + showed meshcat")
 
     # Get the possible poses of the target object
     category_names = [_b3d.renderer_idx_to_category_name(i) for i in category_indices]
@@ -212,6 +235,8 @@ def b3d_init(
                     _b3d.b.show_trimesh(f"possible_pose_{i}", _b3d.b.RENDERER.meshes[potential_indices[-1]])
                     _b3d.b.set_pose(f"possible_pose_{i}", possible_target_poses_C[i, ...])
 
+        logger.debug("Computed possible target poses.")
+
     # Convert poses to world frame
     X_WC = external_pose_to_b3d_pose(camera_image.camera_pose)
     poses_W = [X_WC @ X_CO for X_CO in poses_C]
@@ -225,6 +250,8 @@ def b3d_init(
 
     # (4x4) @ (Nx4x4) -> (Nx4x4)
     possible_target_poses_W = X_WC @ possible_target_poses_C
+
+    logger.debug("Conducted conversions.")
 
     # Return external world frame poses of the known objects, and B3D world-frame 
     # possible pose list for the target object

@@ -16,6 +16,10 @@ from ..utils import plot_two_images_side_by_side
 from typing import NamedTuple
 import jax.numpy as jnp
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 ### Wrappers for interface to B3D ###
 class CameraImage(NamedTuple):
     camera_pose: RigidTransform
@@ -47,6 +51,7 @@ class TableBeliefState:
 Banana spotter using Bayes3D for the underlying perception.
 
 Input Ports:
+- check_banana
 - color_image
 - depth_image
 - camera_pose
@@ -156,8 +161,11 @@ class BananaSpotterBayes3D(LeafSystem):
     
     ### State getters and setters ###
 
+    def _get_table_belief_states(self, state):
+        return state.get_abstract_state(self._table_belief_states).get_value()
+
     def _set_table_belief_states(self, state, new_beliefs):
-        state.get_mutable_abstact_state(self._table_belief_states).set_value(new_beliefs)
+        state.get_mutable_abstract_state(self._table_belief_states).set_value(new_beliefs)
 
     def _set_banana_pose(self, state: State, pose: RigidTransform):
         state.get_mutable_abstract_state(self._banana_pose).set_value(pose)
@@ -166,6 +174,10 @@ class BananaSpotterBayes3D(LeafSystem):
         state.get_mutable_discrete_state().set_value(self._found_banana, [val])
 
     ### Misc utils ###
+
+    def _get_intrinsics(self):
+        camera_info = self._camera.depth_camera_info()
+        return camera_info.intrinsic_matrix()
 
     def _should_check_banana(self, context: Context):
         check_banana = True
@@ -185,23 +197,23 @@ class BananaSpotterBayes3D(LeafSystem):
             for table_pose in table_poses
         ]
         current_table_idx = distances.index(min(distances))
-        print(f"BananaSpotter::Currently at table {current_table_idx}.")
+        logger.info(f"Currently at table {current_table_idx}.")
         return current_table_idx
     
     def _get_images(self, context: Context, state: State):
-        color_image = self.get_color_image_input_port().Eval(context)
-        depth_image = self.get_depth_image_input_port().Eval(context)
-        print("BananaSpotter::Got images.")
+        color_image = self.get_color_image_input_port().Eval(context).data
+        depth_image = self.get_depth_image_input_port().Eval(context).data
+        logger.info("Got images.")
         if self._plot_camera_input:
-            plot_two_images_side_by_side(color_image.data, depth_image.data)
-            print("BananaSpotter::Displayed images.")
+            plot_two_images_side_by_side(color_image, depth_image)
+            logger.debug("Displayed images.")
         return color_image, depth_image
 
     ### Initialization ###
     def _initialize_state(self, context: Context, state: State):
         state.get_mutable_discrete_state().set_value(self._found_banana, [0])
         self._set_banana_pose(state, RigidTransform())
-        self._set_table_belief_states(state, [TableBeliefState() for _ in self.table_specs])
+        self._set_table_belief_states(state, [TableBeliefState() for _ in self._table_specs])
         state.get_mutable_discrete_state().set_value(self._perception_completed, [0])
 
     ### Update ###
@@ -218,28 +230,31 @@ class BananaSpotterBayes3D(LeafSystem):
         table_pose_world_frame = self.get_table_pose_input_port(current_table_idx).Eval(context)
         camera_image = CameraImage(
             self.get_camera_pose_input_port().Eval(context),
-            self._camera_intrinsics,
+            self._get_intrinsics(),
             color_image[:, :, :3],
             depth_image[:, :, 0]
         )
         if not bs.is_initialized():
+            logger.info(f"Bayes3D init on table {current_table_idx}")
             (known_poses, possible_poses) = b3d.b3d_init(
                 camera_image,
                 _category_string_list(table_spec),
                 'banana',
                 table_spec.n_objects + 1, # objects + possible banana
                 (table_pose_world_frame, 0.49, 0.63, 0.015),
-                scaling_factor=0.2,
+                scaling_factor=0.1,
                 external_pose_to_b3d_pose=external_pose_to_b3d_pose,
                 b3d_pose_to_external_pose=b3d_pose_to_external_pose
             )
         else:
+            logger.info(f"Bayes3D update on table {current_table_idx}")
             (known_poses, possible_poses) = b3d.b3d_update(
                 bs.known_poses, bs.possible_poses, camera_image, table_pose_world_frame, 'banana',
-                scaling_factor=0.2,
+                scaling_factor=0.1,
                 external_pose_to_b3d_pose=external_pose_to_b3d_pose,
                 b3d_pose_to_external_pose=b3d_pose_to_external_pose
             )
+        logger.info(f"--> known pose types: {[c for (c, _) in known_poses]} | + {len(possible_poses)} possible banana poses")
         
         new_bs = TableBeliefState(known_poses, possible_poses)
 
@@ -250,11 +265,12 @@ class BananaSpotterBayes3D(LeafSystem):
         self._set_table_belief_states(state, new_belief_states)
 
         if _has_banana(known_poses):
+            logger.info("---> Setting banana found = true.")
             self._set_banana_pose(state, _get_banana_pose(known_poses))
             self._set_found_banana(state, 1)
 
         state.get_mutable_discrete_state().set_value(self._perception_completed, [1])
-        print("BananaSpotter::set perception_completed to true")
+        logger.info("Set perception_completed to true")
 
 def _has_banana(known_poses):
     for (category_name, pose) in known_poses:

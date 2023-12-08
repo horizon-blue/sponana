@@ -76,8 +76,6 @@ class FiniteStateMachine(LeafSystem):
     
     def _get_camera_pose_ind(self, context):
         ind = int(context.get_discrete_state().get_mutable_value(self._camera_pose_ind)[0])
-        # print(f"camera pose ind = {int(ind)}")
-        # return int(ind)
         return ind
 
     ### Output port setters ##
@@ -116,26 +114,26 @@ class FiniteStateMachine(LeafSystem):
     def _update(self, context: Context, state: State):
         current_action = self._get_current_action(context)
         if current_action == 1:
-            print("Moving...")
+            logger.debug("Moving...")
             # Moving from point A to point B
             if self._get_rrt_completed(context, state):
-                print("--> Moving completed.")
+                logger.debug("--> Moving completed.")
                 # Run perception.
                 self._set_current_action(context, state, 2)
             else:
-                print("--> Moving not completed.")
+                logger.debug("--> Moving not completed.")
             # else, continue executing the path
         elif current_action == 2:
             # Running perception
-            print("Running perception...")
+            logger.debug("Running perception...")
             if self._perception_completed(context, state):
-                print("--> Perception completed.")
+                logger.debug("--> Perception completed.")
                 if self._banana_visible(context, state):
-                    print("----> Banana visible.")
+                    logger.debug("----> Banana visible.")
                     # Grasp the banana
                     self._set_current_action(context, state, 3)
                 else:
-                    print("----> Banana not visible.")
+                    logger.debug("----> Banana not visible.")
                     still_not_done = self._increment_pose_idx(context, state)
                     if not still_not_done:
                         # Went to last position and still don't see anything.  Fail!
@@ -143,21 +141,21 @@ class FiniteStateMachine(LeafSystem):
                     else:
                         self._set_current_action(context, state, 1) # Go to pose
             else:
-                print("--> Perception not yet completed...")
+                logger.debug("--> Perception not yet completed...")
             # else, continue running perception
         elif current_action == 3:
-            print("Running grasping...")
+            logger.debug("Running grasping...")
             # Grasping
             if self._grasp_completed(context, state):
-                print("--> Grasp completed.")
+                logger.debug("--> Grasp completed.")
                 if self._has_banana(context, state):
-                    print("----> Banana obtained.")
+                    logger.debug("----> Banana obtained.")
                     self._set_current_action(context, state, 4) # Done!
                 else:
-                    print("----> Banana not obtained.")
+                    logger.debug("----> Banana not obtained.")
                     self._set_current_action(context, state, 5) # Fail!
             else:
-                print("--> Grasp not yet completed...")
+                logger.debug("--> Grasp not yet completed...")
         else:
             # Success or fail, but we're done either way
             assert current_action == 4 or current_action == 5
@@ -178,9 +176,9 @@ class FiniteStateMachine(LeafSystem):
         
     def _set_current_action(self, context, state, new_current_action):
         if new_current_action == 4:
-            print("Huge win!")
+            logger.info("Huge win!")
         elif new_current_action == 5:
-            print("Epic fail!")
+            logger.info("Epic fail!")
 
         state.set_value(self._current_action, [new_current_action])
 
