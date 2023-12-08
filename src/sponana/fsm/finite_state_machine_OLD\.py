@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 from pydrake.all import Context, LeafSystem, State
-from pydrake.systems.framework import SystemBase
 
 logger = logging.getLogger(__name__)
 
@@ -12,28 +11,11 @@ class FiniteStateMachine(LeafSystem):
     and go to each of these cameras in order (using the Navigator leaf system)
     , until banana is found.
 
-    Constructor args:
-    - target_base_positions.  IxJx3 numpy array.
-        target_base_positions[table_idx, camera_idx, :]
-        is the base pose for looking at table with index table_idx
-        from camera_idx camera position.
-        CURRENTLY J must equal 3.
-    - time_step
-    - is_naive_fsm.  Boolean.  True if this FSM should choose the next pose
-        naively (just going in sequence).  False if the FSM should apply
-        belief state reasoning to make more optimal decisions about the
-        next action to take.
-
     Input ports:
     - camera_reached. = 1 when the spot is at the current target camera location. else = 0.
     - see_banana. = 1 when banana has been found. = 0 otherwise.
     - perception_completed. = 1 when perception is complete. = 0 otherwise.
     - has_banana. = 1 when banana has been grasped. = 0 otherwise.
-
-    - p_pose1. Estimate of the probability that the banana is visible from pose 1
-        at the current table.
-    - p_pose2. Estimate of teh probability that the banana is visible from pose 2
-        at the current table.
 
     Output ports:
     - target_base_position. Target pose for the base.
@@ -44,9 +26,7 @@ class FiniteStateMachine(LeafSystem):
     - grasp_banana. = 1 when spot should try to grasp the banana. = 0 otherwise.
 
     State:
-    _looking_inds:
-        This specifies the (next) pose to look at the table from.
-        This contains 2 numbers, (current_table_idx, current_camera_idx).
+    _camera_pose_ind = index of current target camera pose
     _current_action:
         = 1 when moving to location
         = 2 when running perception
@@ -55,16 +35,10 @@ class FiniteStateMachine(LeafSystem):
         = 5 when this has all failed.  sad!
     """
 
-    def __init__(self, target_base_positions: np.ndarray, time_step: float = 0.1, is_naive_fsm=True):
+    def __init__(self, target_base_positions: np.ndarray, time_step: float = 0.1):
         super().__init__()
-
-        # 3x3x3 numpy array.
-        # self._camera_pos_list[table_idx, camera_idx, :]
-        # is the base pose for looking at table with index table_idx
-        # from camera_idx camera position
-        self._camera_pos_list = target_base_positions
-
-        self._is_naive_fsm = is_naive_fsm
+        # TODO: remove this reshape
+        self._camera_pos_list = target_base_positions.reshape(-1, 3)
         
         ### STATE
             # self._current_action
@@ -75,26 +49,19 @@ class FiniteStateMachine(LeafSystem):
             # = 5 when this has all failed.  sad!
         self._current_action = self.DeclareDiscreteState(1)
             # Index of current camera pose to go to
-        self._looking_inds = self.DeclareDiscreteState(2)
+        self._camera_pose_ind = self.DeclareDiscreteState(1)
 
         ### INPUT PORTS
         self.DeclareVectorInputPort("camera_reached", 1)
         self.DeclareVectorInputPort("see_banana", 1)
         self.DeclareVectorInputPort("perception_completed", 1)
         self.DeclareVectorInputPort("has_banana", 1)
-        self.DeclareVectorInputPort("p_pose1", 1)
-        self.DeclareVectorInputPort("p_pose2", 1)
 
         ### OUTPUT PORTS
         self.DeclareVectorOutputPort(name="target_base_position", size=3, calc=self._set_target_base_position)
         self.DeclareVectorOutputPort(name="grasp_banana", size=1, calc=self._set_do_grasp)
         self.DeclareVectorOutputPort(name="do_rrt", size=1, calc=self._set_do_rrt)
-        # Declare that `check_banana` has no direct feedthrough from the input ports.
-        # (In fact, it only directly depends on _current_action, which is a state variable.)
-        self.DeclareVectorOutputPort(
-            "check_banana", 1, self._set_check_banana,
-            {SystemBase.all_state_ticket()}
-        )
+        self.DeclareVectorOutputPort(name="check_banana", size=1, calc=self._set_check_banana)
 
         self.DeclarePeriodicDiscreteUpdateEvent(
             period_sec=time_step,
@@ -107,15 +74,15 @@ class FiniteStateMachine(LeafSystem):
     def _get_current_action(self, context):
         return int(context.get_discrete_state().get_mutable_value(self._current_action)[0])
     
-    def _get_looking_inds(self, context):
-        vals = context.get_discrete_state().get_mutable_value(self._looking_inds)
-        return (int(vals[0]), int(vals[1]))
+    def _get_camera_pose_ind(self, context):
+        ind = int(context.get_discrete_state().get_mutable_value(self._camera_pose_ind)[0])
+        return ind
 
     ### Output port setters ##
 
     def _set_target_base_position(self, context, output):
-        (table_idx, camera_idx) = self._get_looking_inds(context)
-        output.SetFromVector(self._camera_pos_list[table_idx, camera_idx, :])
+        i = self._get_camera_pose_ind(context)
+        output.SetFromVector(self._camera_pos_list[i])
 
     # Navigate when current action == 1
     def _set_do_rrt(self, context, output):
@@ -140,7 +107,7 @@ class FiniteStateMachine(LeafSystem):
 
     ### Initialization ###
     def _initialize_state(self, context: Context, state: State):
-        state.set_value(self._looking_inds, [0, 0])
+        state.set_value(self._camera_pose_ind, [0])
         state.set_value(self._current_action, [1])
 
     ### Update ###
@@ -167,15 +134,12 @@ class FiniteStateMachine(LeafSystem):
                     self._set_current_action(context, state, 3)
                 else:
                     logger.info("----> Banana not visible.")
-                    still_not_done = self.set_next_pose(context, state)
-                    if still_not_done:
-                        logger.debug("Setting FSM action to 1.")
-                        self._set_current_action(context, state, 1) # Go to pose
-                        return
-                    else:
+                    still_not_done = self._increment_pose_idx(context, state)
+                    if not still_not_done:
                         # Went to last position and still don't see anything.  Fail!
                         self._set_current_action(context, state, 5)
-
+                    else:
+                        self._set_current_action(context, state, 1) # Go to pose
             else:
                 logger.debug("--> Perception not yet completed...")
             # else, continue running perception
@@ -197,64 +161,17 @@ class FiniteStateMachine(LeafSystem):
             assert current_action == 4 or current_action == 5
             # Simulation is completed.
             return
-        
-    def set_next_pose(self, context, state):
-        if self._is_naive_fsm:
-            return self._increment_pose_idx(context, state)
-        else:
-            # Do a little belief-state reasoning.
-            return self._set_next_pose_using_beliefs(context, state)
 
-    def _set_next_pose_using_beliefs(self, context, state):
-        (current_table_idx, current_camera_idx) = self._get_looking_inds(context)
-        (n_tables, n_camera_poses, _) = self._camera_pos_list.shape
-        assert n_camera_poses == 3, "current code only supports n_camera_poses = 3"
-
-        p_pose1 = self.get_p_pose_input_port(1).Eval(context)
-        p_pose2 = self.get_p_pose_input_port(2).Eval(context)
-
-        max_p = max(p_pose1, p_pose2)
-        p1_is_max = p_pose1 == max_p
-
-        at_last_table_and_not_done = (current_table_idx == n_tables - 1 and max_p > 0)
-        if at_last_table_and_not_done or max_p > 0.05:
-            # Go to the best remaining pose at this table.
-            state.set_value(self._looking_inds, [current_table_idx, 1 if p1_is_max else 2])
-            return True
-        elif current_table_idx == n_tables - 1:
-            assert max_p == 0 # all tables should be explored by now
-            return False # no more exploration to do
-        else:
-            # Advance to first looking pose for the next table
-            state.set_value(self._looking_inds, [current_table_idx + 1, 0])
-            return True
-
-    # Goes to the next camera pose in sequence.
-    # (Note that this is naive behavior.)
     def _increment_pose_idx(self, context, state):
         """
         Returns True if there is a next pose, False if we have
         already arived at the last one.
         """
-
-        logger.debug("Incrementing pose index.")
-
-        (current_i, current_j) = self._get_looking_inds(context)
-
-        (n_i, n_j, _) = self._camera_pos_list.shape
-        logger.debug(f"n_i = {n_i}; n_j = {n_j}")
-        if current_j >= n_j - 1 and current_i >= n_i - 1:
-            logger.debug(f"At last table.  (current_j = {current_j}, current_i = {current_i})")
+        current_i = self._get_camera_pose_ind(context)
+        if current_i >= len(self._camera_pos_list) - 1:
             return False
-        elif current_j >= n_j - 1:
-            assert current_i + 1 < n_i
-            logger.debug(f"incrementing table idx (current_j = {current_j}, current_i = {current_i})")
-            state.set_value(self._looking_inds, [current_i + 1, 0])
-            return True
         else:
-            assert current_j + 1 < n_j
-            logger.debug(f"incrementing camera idx (current_j = {current_j}, current_i = {current_i})")
-            state.set_value(self._looking_inds, [current_i, current_j + 1])
+            state.set_value(self._camera_pose_ind, [current_i + 1])
             return True
         
     def _set_current_action(self, context, state, new_current_action):
@@ -294,10 +211,6 @@ class FiniteStateMachine(LeafSystem):
 
     def get_has_banana_input_port(self):
         return self.GetInputPort("has_banana")
-    
-    def get_p_pose_input_port(self, i):
-        assert i == 1 or i == 2
-        return self.GetInputPort(f"p_pose{i}")
 
     ### Output port getters: ###
 

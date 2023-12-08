@@ -97,6 +97,12 @@ def get_camera_poses_table_frame():
     Xs_TC = [X_TW @ X_WC for X_WC in camera_poses_W]
     return Xs_TC
 
+def get_cam_poses_nested_array():
+    Xs_WC = []
+    Xs_TC = get_camera_poses_table_frame()
+    for X_WT in Xs_WT:
+        Xs_WC.append([X_WT @ X_TC for X_TC in Xs_TC])
+    return Xs_WC
 
 def get_all_camera_poses_world_frame():
     Xs_TC = get_camera_poses_table_frame()

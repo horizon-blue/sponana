@@ -37,6 +37,11 @@ def get_rgbd(img, external_pose_to_b3d_pose):
     )
     return rgbd
 
+POSSIBLE_POSE_GRID_SIZE = (20, 20, 8)
+def get_max_n_possible_poses():
+    s = POSSIBLE_POSE_GRID_SIZE
+    return s[0] * s[1] * s[2]
+
 ### Main functionality below this point ###
 
 # Conventions:
@@ -215,7 +220,7 @@ def b3d_init(
             potential_indices
         )  = _b3d.get_viable_object_positions(
             table_pose, obs_img,
-            (grid_param_sequence[0][0], jnp.pi, (20, 20, 8)),
+            (grid_param_sequence[0][0], jnp.pi, POSSIBLE_POSE_GRID_SIZE),
             center_contact_params,
             contact_params, category_indices, contact_faces,
             target_category,

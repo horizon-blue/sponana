@@ -27,7 +27,7 @@ from sponana.perception import (
 )
 from sponana.planner import Navigator
 
-from .hardcoded_cameras import get_base_positions_for_hardcoded_cameras
+from .hardcoded_cameras import get_base_positions_for_hardcoded_cameras, get_cam_poses_nested_array
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +65,10 @@ def create_and_run_simulation(
     use_teleop=True,
     starting_position=np.array([3.0, 7.0, -1.57]),
     plot_camera_input=False,
+    use_naive_fsm=True,
 ):
     """
-    Generate a Sponana environment consistent with the provided `table_specs`.
+    Generate a sponana environment and run a simulation.
     """
 
     # Randomly generate specifications for the tables if any are incomplete
@@ -173,6 +174,7 @@ model_drivers:
         "banana_spotter",
         BananaSpotterBayes3D(
             spot_camera,
+            get_cam_poses_nested_array(),
             num_tables=len(table_pose_extractors),
             plot_camera_input=plot_camera_input,
             table_specs=table_specs
@@ -192,7 +194,8 @@ model_drivers:
         fsm = builder.AddNamedSystem(
             "finite_state_machine",
             FiniteStateMachine(
-                target_base_positions=get_base_positions_for_hardcoded_cameras()
+                target_base_positions=get_base_positions_for_hardcoded_cameras(),
+                is_naive_fsm=use_naive_fsm
             ),
         )
 
@@ -250,6 +253,14 @@ model_drivers:
         builder.Connect(
             banana_spotter.get_perception_completed_output_port(),
             fsm.get_perception_completed_input_port()
+        )
+        builder.Connect(
+            banana_spotter.get_p_pose_output_port(1),
+            fsm.get_p_pose_input_port(1)
+        )
+        builder.Connect(
+            banana_spotter.get_p_pose_output_port(2),
+            fsm.get_p_pose_input_port(2)
         )
 
         # Grasper (banana pose -> gripper joint positions)
