@@ -90,7 +90,6 @@ class Navigator(LeafSystem):
     def _initialize_states(self, context: Context, state: State):
         state.set_value(self._base_position, self._initial_position)
         state.set_value(self._done_rrt, [0])
-    
 
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
@@ -104,11 +103,9 @@ class Navigator(LeafSystem):
         spot_problem = SpotProblem(
             current_position, target_position, self._collision_check
         )
-        trajectory = rrt_planning(spot_problem, max_n_tries=20, max_iterations_per_try=200)
-        ###
-
-
-
+        trajectory = rrt_planning(
+            spot_problem, max_n_tries=100, max_iterations_per_try=500
+        )
         if self._meshcat:
             visualize_path(trajectory, self._meshcat)
 
@@ -186,5 +183,3 @@ def _spot_in_collision(
         if pair_name0.startswith("spot") != pair_name1.startswith("spot"):
             return True
     return False
-
-

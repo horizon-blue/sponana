@@ -25,8 +25,8 @@ class SpotProblem(Problem):
             Range(low=-2 * np.pi, high=2 * np.pi),  # base_rz
         ]
 
-        # 0.1 for two prismatic joints (x, y), 2 degrees for the revolute joint (rz)
-        max_steps = [0.1, 0.1, np.pi / 180 * 2]
+        # 0.1 for two prismatic joints (x, y), 5 degrees for the revolute joint (rz)
+        max_steps = [0.1, 0.1, np.pi / 180 * 5]
 
         cspace_spot = ConfigurationSpace(cspace_ranges, np.linalg.norm, max_steps)
         assert cspace_spot.valid_configuration(tuple(q_start))

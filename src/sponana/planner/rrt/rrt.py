@@ -69,7 +69,7 @@ def rrt_planning(
     return []
 
 
-def rrt_shortcutting(path, rrt_tools):
+def rrt_shortcutting(path: list[ConfigType], rrt_tools: RRT_tools) -> list[ConfigType]:
     # https://www.cs.cmu.edu/~maxim/classes/robotplanning/lectures/RRT_16350_sp23.pdf
     n0_ind = 0  # start
     n1_ind = n0_ind + 1
