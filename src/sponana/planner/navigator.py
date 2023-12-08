@@ -7,7 +7,7 @@ from pydrake.all import Context, LeafSystem, Meshcat, MultibodyPlant, SceneGraph
 
 from ..controller import q_nominal_arm
 from ..utils import MakeSponanaHardwareStation, set_spot_positions
-from .rrt import ConfigType, SpotProblem, rrt_planning
+from .rrt import ConfigType, SpotProblem, rrt_planning, rrt_tools
 from .utils import delete_path_visual, visualize_path
 
 default_scenario = "package://sponana/scenes/three_rooms_with_tables.dmd.yaml"
@@ -90,6 +90,31 @@ class Navigator(LeafSystem):
     def _initialize_states(self, context: Context, state: State):
         state.set_value(self._base_position, self._initial_position)
         state.set_value(self._done_rrt, [0])
+    
+    def check_straight_line_shortcutting(self,node1, node2):
+        spot_problem = SpotProblem(node1, node2, self._collision_check)
+        rrt_tools = rrt_tools(spot_problem)
+        straight_path = rrt_tools.calc_intermediate_qs_wo_collision(node1, node2)
+        if straight_path[-1] == node2: # no collisions for straight line interpolation
+            return True
+        else:
+            return False
+    
+    def two_nodes_shortcutting(self,path):
+        #https://www.cs.cmu.edu/~maxim/classes/robotplanning/lectures/RRT_16350_sp23.pdf
+        n0_ind = 0 # start
+        n1_ind = n0_ind+1
+        new_path = []
+        goal_node = path[-1]
+        goal_node_ind = len(path)-1
+        while path[n0_ind] != goal_node:
+            n0 = path[n0_ind]
+            n1 = path[n1_ind]
+            while self.check_straight_line_shortcutting(n0, n1) and (n1_ind+1) < goal_node_ind:
+                n1_ind += 1
+            new_path.append(n0, n1)
+            n0_ind = n1_ind
+            n1_ind = n1_ind + 1 
 
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
@@ -104,7 +129,7 @@ class Navigator(LeafSystem):
             current_position, target_position, self._collision_check
         )
         trajectory = rrt_planning(spot_problem, max_n_tries=20, max_iterations_per_try=200)
-
+        trajectory = two_nodes_shortcutting(trajectory)
         if self._meshcat:
             visualize_path(trajectory, self._meshcat)
 
@@ -182,3 +207,5 @@ def _spot_in_collision(
         if pair_name0.startswith("spot") != pair_name1.startswith("spot"):
             return True
     return False
+
+
