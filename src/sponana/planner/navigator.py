@@ -7,7 +7,7 @@ from pydrake.all import Context, LeafSystem, Meshcat, MultibodyPlant, SceneGraph
 
 from ..controller import q_nominal_arm
 from ..utils import MakeSponanaHardwareStation, set_spot_positions
-from .rrt import ConfigType, SpotProblem, rrt_planning, rrt_tools
+from .rrt import ConfigType, SpotProblem, rrt_planning, calc_intermediate_qs_wo_collision
 from .utils import delete_path_visual, visualize_path
 
 default_scenario = "package://sponana/scenes/three_rooms_with_tables.dmd.yaml"
@@ -129,7 +129,11 @@ class Navigator(LeafSystem):
             current_position, target_position, self._collision_check
         )
         trajectory = rrt_planning(spot_problem, max_n_tries=20, max_iterations_per_try=200)
-        trajectory = two_nodes_shortcutting(trajectory)
+        trajectory = self.two_nodes_shortcutting(trajectory)
+        ###
+
+
+
         if self._meshcat:
             visualize_path(trajectory, self._meshcat)
 

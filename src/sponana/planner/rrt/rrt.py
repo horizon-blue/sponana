@@ -3,6 +3,30 @@ from manipulation.exercises.trajectories.rrt_planner.rrt_planning import Problem
 
 from .rrt_tools import ConfigType, RRT_tools
 
+def check_straight_line_shortcutting(self,node1, node2):
+        spot_problem = SpotProblem(node1, node2, self._collision_check)
+        rrt_tools = rrt_tools(spot_problem)
+        straight_path = rrt_tools.calc_intermediate_qs_wo_collision(node1, node2)
+        if straight_path[-1] == node2: # no collisions for straight line interpolation
+            return True
+        else:
+            return False
+    
+def two_nodes_shortcutting(self,path):
+    #https://www.cs.cmu.edu/~maxim/classes/robotplanning/lectures/RRT_16350_sp23.pdf
+    n0_ind = 0 # start
+    n1_ind = n0_ind+1
+    new_path = []
+    goal_node = path[-1]
+    goal_node_ind = len(path)-1
+    while path[n0_ind] != goal_node:
+        n0 = path[n0_ind]
+        n1 = path[n1_ind]
+        while self.check_straight_line_shortcutting(n0, n1) and (n1_ind+1) < goal_node_ind:
+            n1_ind += 1
+        new_path.append(n0, n1)
+        n0_ind = n1_ind
+        n1_ind = n1_ind + 1 
 
 def rrt_planning(
     problem: Problem, max_n_tries: int = 20, max_iterations_per_try: int = 250, prob_sample_q_goal: float = 0.05
