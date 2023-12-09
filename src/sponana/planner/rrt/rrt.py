@@ -5,7 +5,10 @@ from .rrt_tools import ConfigType, RRT_tools
 
 
 def rrt_planning(
-    problem: Problem, max_n_tries: int = 20, max_iterations_per_try: int = 250, prob_sample_q_goal: float = 0.05
+    problem: Problem,
+    max_n_tries: int = 20,
+    max_iterations_per_try: int = 250,
+    prob_sample_q_goal: float = 0.05,
 ) -> list[ConfigType]:
     """
     Input:
@@ -43,10 +46,11 @@ def rrt_planning(
         rrt_tools = RRT_tools(problem)
         q_goal = problem.goal
 
-        n_iters = max_iterations_per_try
-        if i > 6:
-            n_iters = 3 * n_iters
-        for _ in range(n_iters):
+        # TODO: if this is not robut enough, we may want to expand
+        # the number of iterations per try, as we try more times and
+        # repeatedly fail to solve it in this number of RRT iterations
+
+        for _ in range(max_iterations_per_try):
             q_sample = rrt_tools.sample_node_in_configuration_space()
             if np.random.rand() < prob_sample_q_goal:
                 q_sample = q_goal
@@ -60,6 +64,30 @@ def rrt_planning(
             for q_val in intermediates:
                 last_node = rrt_tools.grow_rrt_tree(last_node, q_val)
                 if rrt_tools.node_reaches_goal(last_node):
-                    return rrt_tools.backup_path_from_node(last_node)
-
+                    path = rrt_tools.backup_path_from_node(last_node)
+                    return rrt_shortcutting(path, rrt_tools)
     return []
+
+
+def rrt_shortcutting(path: list[ConfigType], rrt_tools: RRT_tools) -> list[ConfigType]:
+    # https://www.cs.cmu.edu/~maxim/classes/robotplanning/lectures/RRT_16350_sp23.pdf
+    n0_ind = 0  # start
+    n1_ind = n0_ind + 1
+    new_path = [path[n0_ind]]
+    goal_node_ind = len(path) - 1
+    while n0_ind < goal_node_ind:
+        n0 = path[n0_ind]
+        n1 = path[n1_ind]
+        while (
+            rrt_tools.calc_intermediate_qs_wo_collision(n0, path[n1_ind])[-1]
+            == path[n1_ind]
+            and (n1_ind + 1) < goal_node_ind
+        ):
+            n1 = path[n1_ind]
+            n1_ind += 1
+        # leverage rrt tools to interpolate path
+        # slicing with [1:] because we don't want endpoint to overlap
+        new_path.extend(rrt_tools.calc_intermediate_qs_wo_collision(n0, n1)[1:])
+        n0_ind = n1_ind
+        n1_ind = n1_ind + 1
+    return new_path

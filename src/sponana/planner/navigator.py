@@ -103,8 +103,9 @@ class Navigator(LeafSystem):
         spot_problem = SpotProblem(
             current_position, target_position, self._collision_check
         )
-        trajectory = rrt_planning(spot_problem, max_n_tries=20, max_iterations_per_try=200)
-
+        trajectory = rrt_planning(
+            spot_problem, max_n_tries=100, max_iterations_per_try=500
+        )
         if self._meshcat:
             visualize_path(trajectory, self._meshcat)
 
