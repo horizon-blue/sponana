@@ -172,7 +172,7 @@ def add_meshes_to_renderer(
     b.RENDERER.add_mesh(pillar_mesh, "pillar")
 
     # Add a plane
-    b.RENDERER.add_mesh_from_file("/home/georgematheos/tampura/tampura/tampura/envs/find_dice_bayes3d/environment/toy_plane.ply")
+    # b.RENDERER.add_mesh_from_file("/home/georgematheos/tampura/tampura/tampura/envs/find_dice_bayes3d/environment/toy_plane.ply")
 
     # Optional: add table
     if table_dims is not None:

@@ -110,7 +110,7 @@ def b3d_init(
         _b3d.b.clear()
         _b3d.b.show_cloud("Obs without table or too-far points", obs_img.reshape(-1,3))
         _b3d.b.show_pose("table pose", table_pose)
-        _b3d.b.show_trimesh("table", _b3d.b.RENDERER.meshes[_b3d.category_name_to_renderer_idx('table')])
+        # _b3d.b.show_trimesh("table", _b3d.b.RENDERER.meshes[_b3d.category_name_to_renderer_idx('table')])
         _b3d.b.set_pose("table", X_CW @ X_WTcenter)
 
     logger.debug("Setup meshcat.")

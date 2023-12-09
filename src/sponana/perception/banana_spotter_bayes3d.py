@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pydrake.all import (
     AbstractValue,
     Context,
@@ -21,17 +21,22 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 ### Wrappers for interface to B3D ###
 class CameraImage(NamedTuple):
     camera_pose: RigidTransform
-    intrinsics: np.ndarray # 3 x 3
-    color_image: np.ndarray # W x H x 3
-    depth_image: np.ndarray # W x H
+    intrinsics: np.ndarray  # 3 x 3
+    color_image: np.ndarray  # W x H x 3
+    depth_image: np.ndarray  # W x H
+
 
 def external_pose_to_b3d_pose(x):
     return jnp.array(x.GetAsMatrix4())
+
+
 def b3d_pose_to_external_pose(x):
     return RigidTransform(x)
+
 
 ### Belief state representation ###
 @dataclass
@@ -39,6 +44,7 @@ class TableBeliefState:
     """
     Belief state about the contents of a single table.
     """
+
     known_poses: list = None
     possible_target_poses: np.ndarray = None
 
@@ -49,7 +55,7 @@ class TableBeliefState:
 
     def is_initialized(self):
         return self.known_poses is not None
-    
+
     def has_banana(self):
         return self.is_initialized() and _has_banana(self.known_poses)
 
@@ -67,15 +73,20 @@ class TableBeliefState:
     def n_visible_at_pose(self, pose_idx):
         if pose_idx == 1:
             logger.debug(f"pose1_visibility_mask = {self.pose1_visibility_mask}")
-            logger.debug(f"sum(pose1_visibility_mask) = {sum(self.pose1_visibility_mask)}")
+            logger.debug(
+                f"sum(pose1_visibility_mask) = {sum(self.pose1_visibility_mask)}"
+            )
             return sum(self.pose1_visibility_mask)
         elif pose_idx == 2:
             logger.debug(f"pose2_visibility_mask = {self.pose2_visibility_mask}")
-            logger.debug(f"sum(pose2_visibility_mask) = {sum(self.pose2_visibility_mask)}")
+            logger.debug(
+                f"sum(pose2_visibility_mask) = {sum(self.pose2_visibility_mask)}"
+            )
             return sum(self.pose2_visibility_mask)
         else:
             raise AssertionError("Invalid pose idx.")
-    
+
+
 def get_p_visible_at_pose(table_belief_states, table_idx, camera_idx):
     assert camera_idx == 1 or camera_idx == 2
 
@@ -83,13 +94,17 @@ def get_p_visible_at_pose(table_belief_states, table_idx, camera_idx):
         # If we know exactly where the banana is, return 0 or 1.
         bs = table_belief_states[table_idx]
         if bs.has_banana():
-            vis_mask = bs.pose1_visibility_mask if camera_idx == 1 else bs.pose2_visibility_mask
+            vis_mask = (
+                bs.pose1_visibility_mask
+                if camera_idx == 1
+                else bs.pose2_visibility_mask
+            )
             assert len(vis_mask) == 1, "Should only have 1 possibility at this point."
             if any(vis_mask):
                 logger.info("p_pose[{table_idx}, {camera_idx}] = 1 [Known Pose]")
-                return 1.
+                return 1.0
         logger.info("p_pose[{table_idx}, {camera_idx}] = 0 [Known Pose]")
-        return 0.
+        return 0.0
 
     # Else, we have uncertainty about the banana pose and need to do some probability
     # calculations.
@@ -108,11 +123,11 @@ def get_p_visible_at_pose(table_belief_states, table_idx, camera_idx):
     n_visible_pose1 = bs.n_visible_at_pose(1)
     n_visible_pose2 = bs.n_visible_at_pose(2)
     n_visible = n_visible_pose1 + n_visible_pose2
-    p_visible_if_at_table = n_visible/bs.n_possible_target_poses()
+    p_visible_if_at_table = n_visible / bs.n_possible_target_poses()
     logger.debug(f"--> p_visible_if_at_table = {p_visible_if_at_table}")
     if p_visible_if_at_table == 0:
         return 0
-    
+
     # P(banana visible at pose X | banana visible at pose 1 or pose 2)
     n_visible_at_idx = n_visible_pose1 if camera_idx == 1 else n_visible_pose2
     p_visible_at_idx_if_visible = n_visible_at_idx / n_visible
@@ -120,10 +135,11 @@ def get_p_visible_at_pose(table_belief_states, table_idx, camera_idx):
 
     # P(banana visible at pose X)
     p_visible_at_idx = p_at_table * p_visible_if_at_table * p_visible_at_idx_if_visible
-    
+
     logger.info(f"p_pose[{table_idx}, {camera_idx}] = {p_visible_at_idx}")
 
     return p_visible_at_idx
+
 
 ### BananaSpotter ###
 """
@@ -162,6 +178,8 @@ State:
 - _table_belief_states. A list of TableBeliefState objects, describing
     the current belief about each table.
 """
+
+
 class BananaSpotterBayes3D(LeafSystem):
     def __init__(
         self,
@@ -171,7 +189,7 @@ class BananaSpotterBayes3D(LeafSystem):
         time_step: float = 0.1,
         plot_camera_input: bool = False,
         table_specs: list = [],
-        *kwargs
+        *kwargs,
     ):
         super().__init__()
 
@@ -250,13 +268,13 @@ class BananaSpotterBayes3D(LeafSystem):
 
     def get_found_banana_output_port(self):
         return self.GetOutputPort("found_banana")
-    
+
     def get_perception_completed_output_port(self):
         return self.GetOutputPort("perception_completed")
-    
+
     def get_p_pose_output_port(self, i):
         return self.GetOutputPort(f"p_pose{i}")
-    
+
     ### Output port setters ###
     def _set_p_pose(self, context, output, i):
         belief = self._get_table_belief_states(context.get_state())
@@ -266,17 +284,19 @@ class BananaSpotterBayes3D(LeafSystem):
 
     def _set_p_pose1(self, context, output):
         return self._set_p_pose(context, output, 1)
-    
+
     def _set_p_pose2(self, context, output):
         return self._set_p_pose(context, output, 2)
-    
+
     ### State getters and setters ###
 
     def _get_table_belief_states(self, state):
         return state.get_abstract_state(self._table_belief_states).get_value()
 
     def _set_table_belief_states(self, state, new_beliefs):
-        state.get_mutable_abstract_state(self._table_belief_states).set_value(new_beliefs)
+        state.get_mutable_abstract_state(self._table_belief_states).set_value(
+            new_beliefs
+        )
 
     def _set_banana_pose(self, state: State, pose: RigidTransform):
         state.get_mutable_abstract_state(self._banana_pose).set_value(pose)
@@ -310,7 +330,7 @@ class BananaSpotterBayes3D(LeafSystem):
         current_table_idx = distances.index(min(distances))
         logger.debug(f"Currently at table {current_table_idx}.")
         return current_table_idx
-    
+
     def _get_images(self, context: Context, state: State):
         color_image = self.get_color_image_input_port().Eval(context).data
         depth_image = self.get_depth_image_input_port().Eval(context).data
@@ -324,7 +344,9 @@ class BananaSpotterBayes3D(LeafSystem):
     def _initialize_state(self, context: Context, state: State):
         state.get_mutable_discrete_state().set_value(self._found_banana, [0])
         self._set_banana_pose(state, RigidTransform())
-        self._set_table_belief_states(state, [TableBeliefState() for _ in self._table_specs])
+        self._set_table_belief_states(
+            state, [TableBeliefState() for _ in self._table_specs]
+        )
         state.get_mutable_discrete_state().set_value(self._perception_completed, [0])
 
     ### Update ###
@@ -338,58 +360,93 @@ class BananaSpotterBayes3D(LeafSystem):
         table_belief_states = self._get_table_belief_states(state)
         bs = table_belief_states[current_table_idx]
         table_spec = self._table_specs[current_table_idx]
-        table_pose_world_frame = self.get_table_pose_input_port(current_table_idx).Eval(context)
+        table_pose_world_frame = self.get_table_pose_input_port(current_table_idx).Eval(
+            context
+        )
         camera_image = CameraImage(
             self.get_camera_pose_input_port().Eval(context),
             self._get_intrinsics(),
             color_image[:, :, :3],
-            depth_image[:, :, 0]
+            depth_image[:, :, 0],
         )
         if not bs.is_initialized():
             logger.debug(f"Bayes3D init on table {current_table_idx}")
-            (known_poses, possible_poses) = b3d.b3d_init(
-                camera_image,
-                _category_string_list(table_spec),
-                'banana',
-                table_spec.n_objects + 1, # objects + possible banana
-                (table_pose_world_frame, 0.49, 0.63, 0.015),
-                scaling_factor=0.2,
-                external_pose_to_b3d_pose=external_pose_to_b3d_pose,
-                b3d_pose_to_external_pose=b3d_pose_to_external_pose
-            )
+            try:
+                (known_poses, possible_poses) = b3d.b3d_init(
+                    camera_image,
+                    _category_string_list(table_spec),
+                    "banana",
+                    table_spec.n_objects + 1,  # objects + possible banana
+                    (table_pose_world_frame, 0.49, 0.63, 0.015),
+                    scaling_factor=0.2,
+                    external_pose_to_b3d_pose=external_pose_to_b3d_pose,
+                    b3d_pose_to_external_pose=b3d_pose_to_external_pose,
+                )
+            except:
+                logger.debug(
+                    "Bayes3D init failed. This is probably because no object is found on the"
+                    " table. Skipping the perception..."
+                )
+                new_bs = replace(bs, possible_target_poses=np.array([]))
+                new_belief_states = [
+                    old_bs if i != current_table_idx else new_bs
+                    for (i, old_bs) in enumerate(table_belief_states)
+                ]
+                self._set_table_belief_states(state, new_belief_states)
+                state.get_mutable_discrete_state().set_value(
+                    self._perception_completed, [1]
+                )
+                return
+
         else:
             logger.debug(f"Bayes3D update on table {current_table_idx}")
             (known_poses, possible_poses) = b3d.b3d_update(
-                bs.known_poses, bs.possible_target_poses, camera_image, table_pose_world_frame, 'banana',
+                bs.known_poses,
+                bs.possible_target_poses,
+                camera_image,
+                table_pose_world_frame,
+                "banana",
                 scaling_factor=0.2,
                 external_pose_to_b3d_pose=external_pose_to_b3d_pose,
-                b3d_pose_to_external_pose=b3d_pose_to_external_pose
+                b3d_pose_to_external_pose=b3d_pose_to_external_pose,
             )
         # logger.debug(f"known poses: {known_poses} | possible_pose type: {type(possible_poses)}")
-        logger.info(f"--> known pose types: {[c for (c, _, _) in known_poses]} | + {len(possible_poses)} possible banana poses")
-        
+        logger.info(
+            f"--> known pose types: {[c for (c, _, _) in known_poses]} | + {len(possible_poses)} possible banana poses"
+        )
+
         logger.debug(f"current_table_idx = {current_table_idx}")
         logger.debug(f"self._camera_poses = {self._camera_poses}")
         logger.debug(f"Cam 1 pose: {self._camera_poses[current_table_idx][1]}")
         logger.debug(f"Cam 2 pose: {self._camera_poses[current_table_idx][2]}")
-        logger.debug(f"Current camera pose: {self.get_camera_pose_input_port().Eval(context)}")
+        logger.debug(
+            f"Current camera pose: {self.get_camera_pose_input_port().Eval(context)}"
+        )
         pose1_visibility_mask = b3d.b3d_is_visible(
-            known_poses, possible_poses,
+            known_poses,
+            possible_poses,
             self._camera_poses[current_table_idx][1],
-            'banana',
+            "banana",
             external_pose_to_b3d_pose=external_pose_to_b3d_pose,
-            b3d_pose_to_external_pose=b3d_pose_to_external_pose
+            b3d_pose_to_external_pose=b3d_pose_to_external_pose,
         )
-        logger.debug(f"--> Got pose 1 visibility mask.  Sum = {sum(pose1_visibility_mask)}")
+        logger.debug(
+            f"--> Got pose 1 visibility mask.  Sum = {sum(pose1_visibility_mask)}"
+        )
         pose2_visibility_mask = b3d.b3d_is_visible(
-            known_poses, possible_poses,
+            known_poses,
+            possible_poses,
             self._camera_poses[current_table_idx][2],
-            'banana',
+            "banana",
             external_pose_to_b3d_pose=external_pose_to_b3d_pose,
-            b3d_pose_to_external_pose=b3d_pose_to_external_pose
+            b3d_pose_to_external_pose=b3d_pose_to_external_pose,
         )
-        logger.debug(f"--> Got pose 2 visibility mask.  Sum = {sum(pose2_visibility_mask)}")
-        new_bs = TableBeliefState(known_poses, possible_poses, pose1_visibility_mask, pose2_visibility_mask)
+        logger.debug(
+            f"--> Got pose 2 visibility mask.  Sum = {sum(pose2_visibility_mask)}"
+        )
+        new_bs = TableBeliefState(
+            known_poses, possible_poses, pose1_visibility_mask, pose2_visibility_mask
+        )
         logger.debug(f"--> belief state constructed.")
 
         new_belief_states = [
@@ -415,18 +472,21 @@ class BananaSpotterBayes3D(LeafSystem):
         state.get_mutable_discrete_state().set_value(self._perception_completed, [1])
         logger.debug("Set perception_completed to true")
 
+
 def _has_banana(known_poses):
-    for (category_name, pose, face) in known_poses:
+    for category_name, pose, face in known_poses:
         if category_name == "banana":
             return True
     return False
 
+
 def _get_banana_pose(known_poses):
-    for (category_name, pose, face) in known_poses:
+    for category_name, pose, face in known_poses:
         if category_name == "banana":
             return pose
-    
+
     raise AssertionError("No banana in known poses list.")
+
 
 def _category_string_list(table_spec):
     """
@@ -439,8 +499,8 @@ def _category_string_list(table_spec):
     # first 4 characters are the ycb index; strip these away
     cats = [ycb[i][4:] for i in table_spec.object_type_indices]
     cats = [cat.split(".")[0] for cat in cats]
-    
+
     if "banana" not in cats:
         cats.append("banana")
-    
+
     return cats
