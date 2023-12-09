@@ -2,7 +2,7 @@ import enum
 import logging
 
 import numpy as np
-from pydrake.all import Context, LeafSystem, State
+from pydrake.all import Context, LeafSystem, RotationMatrix, State
 from pydrake.systems.framework import SystemBase
 
 logger = logging.getLogger(__name__)
@@ -131,12 +131,20 @@ class FiniteStateMachine(LeafSystem):
 
     def _set_target_base_position(self, context, output):
         (table_idx, camera_idx) = self._get_looking_inds(context)
-        output.SetFromVector(self._camera_pos_list[table_idx, camera_idx, :])
+        base_pose = self._camera_pos_list[table_idx, camera_idx, :].copy()
+        if self._get_current_action(context) == Action.STEP_FORWARD:
+            # step forward in current direction
+            R = RotationMatrix.MakeZRotation(base_pose[2])
+            step = R.multiply([0.2, 0, 0])
+            base_pose[:2] += step[:2]  # ignore height in z direction
+        output.SetFromVector(base_pose)
 
     # Navigate when current action == 1
     def _set_do_rrt(self, context, output):
         current_action = self._get_current_action(context)
-        output.SetFromVector([current_action == Action.MOVE])
+        output.SetFromVector(
+            [current_action == Action.MOVE or current_action == Action.STEP_FORWARD]
+        )
 
     # Run perception when current action == 2
     def _set_check_banana(self, context, output):
@@ -173,8 +181,8 @@ class FiniteStateMachine(LeafSystem):
                 logger.info("--> Perception completed.")
                 if self._banana_visible(context, state):
                     logger.info("----> Banana visible.")
-                    # Grasp the banana
-                    self._set_current_action(context, state, Action.GRASP)
+                    # Step forward
+                    self._set_current_action(context, state, Action.STEP_FORWARD)
                 else:
                     logger.info("----> Banana not visible.")
                     still_not_done = self.set_next_pose(context, state)
@@ -190,6 +198,14 @@ class FiniteStateMachine(LeafSystem):
             else:
                 logger.debug("--> Perception not yet completed...")
             # else, continue running perception
+        elif current_action == Action.STEP_FORWARD:
+            logger.debug("Stepping forward...")
+            if self._get_rrt_completed(context, state):
+                logger.debug("--> Stepping forward completed.")
+                # Grasping
+                self._set_current_action(context, state, Action.GRASP)
+            else:
+                logger.debug("--> Stepping forward not completed.")
         elif current_action == Action.GRASP:
             logger.debug("Running grasping...")
             # Grasping
