@@ -4,11 +4,13 @@ from pydrake.all import Meshcat, RigidTransform, RotationMatrix
 from .rrt import ConfigType
 
 
-def visualize_path(path: list[ConfigType], meshcat: Meshcat):
+def visualize_path(path: list[ConfigType], meshcat: Meshcat, offset_idx: int = 0):
     for i, pose in enumerate(path):
         pose = RigidTransform(RotationMatrix.MakeZRotation(pose[2]), [*pose[:2], 0.0])
         opacity = 0.2
-        AddMeshcatTriad(meshcat, f"trajectory_{i}", X_PT=pose, opacity=opacity)
+        AddMeshcatTriad(
+            meshcat, f"trajectory_{i + offset_idx}", X_PT=pose, opacity=opacity
+        )
 
 
 def delete_path_visual(path: list[ConfigType], meshcat: Meshcat):

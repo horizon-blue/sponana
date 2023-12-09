@@ -8,7 +8,7 @@ from pydrake.all import Context, LeafSystem, Meshcat, MultibodyPlant, SceneGraph
 from ..controller import q_nominal_arm
 from ..utils import MakeSponanaHardwareStation, set_spot_positions
 from .rrt import ConfigType, SpotProblem, rrt_planning
-from .utils import delete_path_visual, visualize_path
+from .utils import visualize_path
 
 default_scenario = "package://sponana/scenes/three_rooms_with_tables.dmd.yaml"
 logger = logging.getLogger(__name__)
@@ -56,6 +56,7 @@ class Navigator(LeafSystem):
         self._trajectory = None
         self._traj_idx = -1
         self._previous_goal = initial_position
+        self._traj_idx_offset = 0
         self.DeclarePeriodicDiscreteUpdateEvent(
             period_sec=time_step, offset_sec=0.0, update=self._update
         )
@@ -93,10 +94,6 @@ class Navigator(LeafSystem):
 
     def _plan_trajectory(self, context: Context, state: State):
         """for just moving spot to a q_sample position for collision checks in RRT"""
-        if self._meshcat and self._trajectory is not None:
-            # remove previously visualized trajectory, if there's any
-            delete_path_visual(self._trajectory, self._meshcat)
-
         current_position = self._get_current_position(context)
         target_position = self.get_target_position_input_port().Eval(context)
         logger.info(f"Generating path from {current_position} to {target_position}")
@@ -107,7 +104,8 @@ class Navigator(LeafSystem):
             spot_problem, max_n_tries=100, max_iterations_per_try=500
         )
         if self._meshcat:
-            visualize_path(trajectory, self._meshcat)
+            visualize_path(trajectory, self._meshcat, self._traj_idx_offset)
+        self._traj_idx_offset += len(trajectory)
 
         # reset trajectory
         self._trajectory = trajectory
