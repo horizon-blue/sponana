@@ -79,12 +79,17 @@ def rrt_shortcutting(path: list[ConfigType], rrt_tools: RRT_tools) -> list[Confi
         n0 = path[n0_ind]
         n1 = path[n1_ind]
         while (
-            rrt_tools.calc_intermediate_qs_wo_collision(n0, path[n1_ind])[-1]
-            == path[n1_ind]
-            and (n1_ind + 1) < goal_node_ind
-        ):
-            n1 = path[n1_ind]
+            n1_ind + 1
+        ) < goal_node_ind and rrt_tools.calc_intermediate_qs_wo_collision(
+            n0, path[n1_ind + 1]
+        )[
+            -1
+        ] == path[
+            n1_ind + 1
+        ]:
             n1_ind += 1
+            n1 = path[n1_ind]
+
         # leverage rrt tools to interpolate path
         # slicing with [1:] because we don't want endpoint to overlap
         new_path.extend(rrt_tools.calc_intermediate_qs_wo_collision(n0, n1)[1:])
