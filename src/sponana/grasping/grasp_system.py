@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import Optional
 
@@ -41,7 +42,7 @@ from sponana.grasping.grasp_generator import (
     ScoreSystem,
     get_unified_point_cloud,
 )
-import logging
+
 logger = logging.getLogger(__name__)
 
 # Transform from the gripper frame (as in the WSG) to the arm frame
@@ -318,7 +319,7 @@ class Grasper(LeafSystem):
         if T <= times["pick"]:
             _gripper_angle = -1.4
         if T >= times["postpick"]:
-            _gripper_angle = 0.
+            _gripper_angle = -0.24
 
         # Run IK
         arm_position, ik_success = _run_ik(
