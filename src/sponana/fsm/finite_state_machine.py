@@ -1,3 +1,4 @@
+import enum
 import logging
 
 import numpy as np
@@ -5,6 +6,15 @@ from pydrake.all import Context, LeafSystem, State
 from pydrake.systems.framework import SystemBase
 
 logger = logging.getLogger(__name__)
+
+
+class Action(enum.IntEnum):
+    MOVE = 1
+    PERCEIVE = 2
+    STEP_FORWARD = 3
+    GRASP = 4
+    SUCCESS = 5
+    FAILURE = 6
 
 
 class FiniteStateMachine(LeafSystem):
@@ -50,9 +60,10 @@ class FiniteStateMachine(LeafSystem):
     _current_action:
         = 1 when moving to location
         = 2 when running perception
-        = 3 when running grasping
-        = 4 when completed
-        = 5 when this has all failed.  sad!
+        = 3 when stepping forward before grasping
+        = 4 when running grasping
+        = 5 when completed
+        = 6 when this has all failed.  sad!
     """
 
     def __init__(
@@ -72,12 +83,7 @@ class FiniteStateMachine(LeafSystem):
         self._is_naive_fsm = is_naive_fsm
 
         ### STATE
-        # self._current_action
-        # = 1 when moving to location
-        # = 2 when running perception
-        # = 3 when running grasping
-        # = 4 when completed
-        # = 5 when this has all failed.  sad!
+        # one of the Action enum values
         self._current_action = self.DeclareDiscreteState(1)
         # Index of current camera pose to go to
         self._looking_inds = self.DeclareDiscreteState(2)
@@ -130,37 +136,37 @@ class FiniteStateMachine(LeafSystem):
     # Navigate when current action == 1
     def _set_do_rrt(self, context, output):
         current_action = self._get_current_action(context)
-        output.SetFromVector([1] if current_action == 1 else [0])
+        output.SetFromVector([current_action == Action.MOVE])
 
     # Run perception when current action == 2
     def _set_check_banana(self, context, output):
         current_action = self._get_current_action(context)
-        output.SetFromVector([1] if current_action == 2 else [0])
+        output.SetFromVector([current_action == Action.PERCEIVE])
 
     # Run grasping when current action == 3
     def _set_do_grasp(self, context, output):
         current_action = self._get_current_action(context)
-        output.SetFromVector([1] if current_action == 3 else [0])
+        output.SetFromVector([current_action == Action.GRASP])
 
     ### Initialization ###
     def _initialize_state(self, context: Context, state: State):
         state.set_value(self._looking_inds, [0, 0])
-        state.set_value(self._current_action, [1])
+        state.set_value(self._current_action, [Action.MOVE])
 
     ### Update ###
     def _update(self, context: Context, state: State):
         current_action = self._get_current_action(context)
-        if current_action == 1:
+        if current_action == Action.MOVE:
             logger.debug("Moving...")
             # Moving from point A to point B
             if self._get_rrt_completed(context, state):
                 logger.debug("--> Moving completed.")
                 # Run perception.
-                self._set_current_action(context, state, 2)
+                self._set_current_action(context, state, Action.PERCEIVE)
             else:
                 logger.debug("--> Moving not completed.")
             # else, continue executing the path
-        elif current_action == 2:
+        elif current_action == Action.PERCEIVE:
             # Running perception
             logger.debug("Running perception...")
             if self._perception_completed(context, state):
@@ -168,37 +174,38 @@ class FiniteStateMachine(LeafSystem):
                 if self._banana_visible(context, state):
                     logger.info("----> Banana visible.")
                     # Grasp the banana
-                    self._set_current_action(context, state, 3)
+                    self._set_current_action(context, state, Action.GRASP)
                 else:
                     logger.info("----> Banana not visible.")
                     still_not_done = self.set_next_pose(context, state)
                     if still_not_done:
-                        logger.debug("Setting FSM action to 1.")
-                        self._set_current_action(context, state, 1)  # Go to pose
+                        logger.debug("Setting FSM action to Move.")
+                        # Go to pose
+                        self._set_current_action(context, state, Action.MOVE)
                         return
                     else:
                         # Went to last position and still don't see anything.  Fail!
-                        self._set_current_action(context, state, 5)
+                        self._set_current_action(context, state, Action.FAILURE)
 
             else:
                 logger.debug("--> Perception not yet completed...")
             # else, continue running perception
-        elif current_action == 3:
+        elif current_action == Action.GRASP:
             logger.debug("Running grasping...")
             # Grasping
             if self._grasp_completed(context, state):
                 logger.debug("--> Grasp completed.")
                 if self._has_banana(context, state):
                     logger.debug("----> Banana obtained.")
-                    self._set_current_action(context, state, 4)  # Done!
+                    self._set_current_action(context, state, Action.SUCCESS)  # Done!
                 else:
                     logger.debug("----> Banana not obtained.")
-                    self._set_current_action(context, state, 5)  # Fail!
+                    self._set_current_action(context, state, Action.FAILURE)  # Fail!
             else:
                 logger.debug("--> Grasp not yet completed...")
         else:
             # Success or fail, but we're done either way
-            assert current_action == 4 or current_action == 5
+            assert current_action == Action.SUCCESS or current_action == Action.FAILURE
             # Simulation is completed.
             return
 
@@ -269,10 +276,10 @@ class FiniteStateMachine(LeafSystem):
             state.set_value(self._looking_inds, [current_i, current_j + 1])
             return True
 
-    def _set_current_action(self, context, state, new_current_action):
-        if new_current_action == 4:
+    def _set_current_action(self, context, state, new_current_action: Action):
+        if new_current_action == Action.SUCCESS:
             logger.info("Huge win!")
-        elif new_current_action == 5:
+        elif new_current_action == Action.FAILURE:
             logger.info("Epic fail!")
 
         state.set_value(self._current_action, [new_current_action])
