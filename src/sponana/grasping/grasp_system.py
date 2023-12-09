@@ -48,6 +48,23 @@ logger = logging.getLogger(__name__)
 # (the frame of the arm link in the Spot URDF)
 X_GA = RigidTransform(RollPitchYaw([1.57, 0, 1.57]), np.array([0.0, -0.08, 0.00]))
 
+# GRASP_POSE_AT_00 = RigidTransform(RollPitchYaw([0, 0, np.pi]).ToRotationMatrix()) @ RigidTransform(
+#     R=RotationMatrix([
+#         [-0.9998433965693921, -0.007765899189127902, 0.015901985610781485],
+#         [-0.017523433802785558, 0.3089304559815118, -0.9509231844028279],
+#         [0.0024721659209266797, -0.9510529239620893, -0.3090181616326456],
+#     ]),
+#     p=[0.021171126217858147, 0.09060437151478618, 0.17440060965502766],
+# )
+GRASP_POSE_AT_00 = RigidTransform(
+    R=RotationMatrix([
+        [-1, 0, 0],
+        [0, 0, -1],
+        [0, -1, 0],
+    ]),
+    p=[0.021171126217858147, 0, 0.17440060965502766],
+) @ RigidTransform(RollPitchYaw([0, 3 * np.pi/2, 0]).ToRotationMatrix())
+
 @dataclass
 class GraspPlan:
     traj_X_G: any = None
@@ -94,9 +111,12 @@ class Grasper(LeafSystem):
 
     def __init__(
         self,
-        target_obj_path="package://sponana/banana/banana.sdf",
-        target_obj_link="banana",
-        target_obj_rpy_str="[0, 0, 0]",
+        # target_obj_path="package://sponana/banana/banana.sdf",
+        # target_obj_link="banana",
+        # target_obj_rpy_str="[0, 0, 0]",
+        target_obj_path="package://sponana/grasping/004_sugar_box.sdf", #"package://sponana/banana/banana.sdf",
+        target_obj_link="base_link_sugar", # "banana",
+        target_obj_rpy_str="[90., 90., 90.]", # "[0, 0, 0]",
         time_step: float = 0.003,
         arm_name="arm_link_wr1",
         meshcat: Optional[Meshcat] = None,
@@ -221,13 +241,18 @@ class Grasper(LeafSystem):
         banana_pose = self.get_banana_pose_input_port().Eval(context)
         logger.info(f"Banana pose: {banana_pose}")
 
-        X_Gs = sample_grasps(
-            self.target_obj_path,
-            self.target_obj_link,
-            self.target_obj_rpy_str,
-            pointcloud_transform=banana_pose,
-            meshcat_for_final_grasp=self.meshcat,
-            meshcat=self.meshcat,
+        # X_Gs = sample_grasps(
+        #     self.target_obj_path,
+        #     self.target_obj_link,
+        #     self.target_obj_rpy_str,
+        #     pointcloud_transform=banana_pose,
+        #     meshcat_for_final_grasp=self.meshcat,
+        #     meshcat=self.meshcat,
+        # )
+        best_gripper_pose = banana_pose @ GRASP_POSE_AT_00
+        AddMeshcatTriad(
+            self.meshcat, f"Goal gripper pose",
+            length=0.25, X_PT=best_gripper_pose, opacity=1
         )
 
         # Set up mental model for IK
@@ -237,7 +262,7 @@ class Grasper(LeafSystem):
             meshcat=None,  # If we give the mental model the meshcat it will take over the viz
         )
         self.plant_context = self.plant.GetMyContextFromRoot(mental_sim_context)
-        best_gripper_pose = X_Gs[0]  # @ RigidTransform([0., 0., 0.06])
+        # best_gripper_pose = X_Gs[0]  # @ RigidTransform([0., 0., 0.06])
 
         # Plan a gripper trajectory
         X_WGinitial = self.get_current_gripper_pose(context)
@@ -344,17 +369,17 @@ def MakeGripperFrames(X_WGinit, X_WGfinal, t0):
     Here, G is the gripper frame AS THOUGH IT'S THE WSG! (NOT THE LINK FRAME)
     """
     X_WG = {"initial": X_WGinit}
-    X_WG["post_init"] = X_WGinit @ RigidTransform([0.0, 0.1, 0.2])
+    X_WG["post_init"] = X_WGinit @ RigidTransform([0.0, 0.3, 0.3])
     # X_WG["prepick"] =  X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.3, 0.05])
     # X_WG["pick"] = X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.2, 0.05])
     # X_WG["postpick"] = X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.22, 0.05])
     # X_WG["postpick2"] = X_WGfinal @ RigidTransform([0., -0.3, 0.0])# RigidTransform([0., -0.3, 0.])
     X_WG["prepick"] = X_WGfinal @ RigidTransform([0.0, -0.3, 0.0])
     X_WG["pick"] = X_WGfinal @ RigidTransform(
-        [0.0, -0.035, 0.0]
+        [0.0, 0, 0.0]
     )  # @ RigidTransform([0., -0.22, 0.00])
     X_WG["postpick"] = X_WGfinal @ RigidTransform(
-        [0.0, -0.035, 0.0]
+        [0.0, 0, 0.0]
     )  # @ RigidTransform([0., -0.22, 0.00])
     X_WG["postpick2"] = X_WGfinal @ RigidTransform(
         [0.0, -0.45, 0.0]
@@ -484,7 +509,7 @@ def sample_grasps(
     meshcat=None,
     meshcat_for_final_grasp=None,
 ):
-    meshcat = None
+    # meshcat = None
     rng = np.random.default_rng()
 
     environment = BananaSystem(
@@ -522,10 +547,10 @@ def sample_grasps(
             X_Gs.append(X_G)
 
     indices = np.asarray(costs).argsort()[:1]
-    # if meshcat_for_final_grasp is not None:
-    #     for rank, index in enumerate(indices):
-    #         draw_grasp_candidate(
-    #             X_Gs[index], meshcat_for_final_grasp, gripper_name, prefix=f"{rank}th best", draw_frames=False
-    #         )
+    if meshcat_for_final_grasp is not None:
+        for rank, index in enumerate(indices):
+            draw_grasp_candidate(
+                X_Gs[index], meshcat_for_final_grasp, gripper_name, prefix=f"{rank}th best", draw_frames=False
+            )
 
     return np.array(X_Gs)[indices]

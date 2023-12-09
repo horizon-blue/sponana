@@ -170,7 +170,8 @@ class BananaSpotterBayes3D(LeafSystem):
         num_tables: int = 0,
         time_step: float = 0.1,
         plot_camera_input: bool = False,
-        table_specs: list = []
+        table_specs: list = [],
+        *kwargs
     ):
         super().__init__()
 

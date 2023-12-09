@@ -17,6 +17,7 @@ This banana spotter is a dummy.  It doesn't spot
 much at all, certainly not a banana.
 
 Input Ports:
+- check_banana
 - color_image
 - depth_image
 - camera_pose
@@ -27,6 +28,10 @@ Input Ports:
 Output Ports:
 - found_banana. 1 if banana found, else 0.
 - banana_pose. Pose of banana (if banana has been found.)
+- p_pose1.  Estimate of probability of seeing banana at pose 1 at this table.
+    (This is a dummy.  It will always be zero.)
+- p_pose2.  Estimate of probability of seeing banana at pose 2 at this table.
+    (This is a dummy.  It will always be zero.)
 
 State:
 - _found_banana
@@ -35,6 +40,7 @@ class DummyBananaSpotter(LeafSystem):
     def __init__(
         self,
         camera: RgbdSensor,
+        camera_poses, # Not used...this is for symmetry with BananaSpotterBayes3D
         num_tables: int = 0,
         time_step: float = 0.1,
         plot_camera_input: bool = False,
@@ -73,6 +79,8 @@ class DummyBananaSpotter(LeafSystem):
         
         self._perception_completed = self.DeclareDiscreteState(1)
         self.DeclareStateOutputPort("perception_completed", self._perception_completed)
+        self.DeclareVectorOutputPort("p_pose1", 1, calc=self._set_p_pose)
+        self.DeclareVectorOutputPort("p_pose2", 1, calc=self._set_p_pose)
 
         self.DeclareInitializationUnrestrictedUpdateEvent(self._initialize_state)
         self.DeclarePeriodicUnrestrictedUpdateEvent(
@@ -84,6 +92,12 @@ class DummyBananaSpotter(LeafSystem):
         # we need to compare the current checking stage with previous one to only
         # trigger banana spotter when the checking stage changes
         self._was_checking_banana = False
+
+    def get_p_pose_output_port(self, i):
+        return self.GetOutputPort(f"p_pose{i}")
+
+    def _set_p_pose(self, context, output):
+        output.SetFromVector([0])
 
     def get_check_banana_input_port(self):
         return self.GetInputPort("check_banana")

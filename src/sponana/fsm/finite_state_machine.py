@@ -115,13 +115,19 @@ class FiniteStateMachine(LeafSystem):
 
     def _set_target_base_position(self, context, output):
         (table_idx, camera_idx) = self._get_looking_inds(context)
-        output.SetFromVector(self._camera_pos_list[table_idx, camera_idx, :])
+        pose = self._camera_pos_list[table_idx, camera_idx, :]
+        if self._get_current_action(context) == 3.5:
+            # TODO: this would only work for grasps from camera idx 0
+            # in general the way to change pose to step spot forward
+            # will need to take into account the current rotation
+            output.SetFromVector(pose + np.array([0, -0.5, 0]))
+        output.SetFromVector(pose)
 
     # Navigate when current action == 1
     def _set_do_rrt(self, context, output):
         current_action = self._get_current_action(context)
         output.SetFromVector(
-            [1] if current_action == 1 else [0]
+            [1] if (current_action == 1 or current_action == 3.5) else [0]
         )
 
     # Run perception when current action == 2
@@ -141,7 +147,7 @@ class FiniteStateMachine(LeafSystem):
     ### Initialization ###
     def _initialize_state(self, context: Context, state: State):
         state.set_value(self._looking_inds, [0, 0])
-        state.set_value(self._current_action, [1])
+        state.set_value(self._current_action, [1]) # TODO - revert to 1 - just set to 3 for debugging grasping
 
     ### Update ###
     def _update(self, context: Context, state: State):
@@ -164,7 +170,7 @@ class FiniteStateMachine(LeafSystem):
                 if self._banana_visible(context, state):
                     logger.info("----> Banana visible.")
                     # Grasp the banana
-                    self._set_current_action(context, state, 3)
+                    self._set_current_action(context, state, 3.5)
                 else:
                     logger.info("----> Banana not visible.")
                     still_not_done = self.set_next_pose(context, state)
@@ -179,6 +185,16 @@ class FiniteStateMachine(LeafSystem):
             else:
                 logger.debug("--> Perception not yet completed...")
             # else, continue running perception
+        
+        # Step forward before grasping
+        elif current_action == 3.5:
+            if self._get_rrt_completed(context, state):
+                logger.debug("--> Step forward completed.")
+                # Run perception.
+                self._set_current_action(context, state, 3)
+            else:
+                logger.debug("--> Step forward not completed.")
+
         elif current_action == 3:
             logger.debug("Running grasping...")
             # Grasping

@@ -22,6 +22,7 @@ from sponana.grasping import Grasper
 from sponana.hardcoded_cameras import get_camera_generator_str
 from sponana.perception import (
     BananaSpotterBayes3D,
+    DummyBananaSpotter,
     add_body_pose_extractor,
     add_camera_pose_extractor,
 )
@@ -66,6 +67,7 @@ def create_and_run_simulation(
     starting_position=np.array([3.0, 7.0, -1.57]),
     plot_camera_input=False,
     use_naive_fsm=True,
+    use_dummy_spotter=False
 ):
     """
     Generate a sponana environment and run a simulation.
@@ -170,9 +172,11 @@ model_drivers:
     camera_pose_extractor = add_camera_pose_extractor(
         spot_camera_config, station, builder
     )
+
+    Spotter = DummyBananaSpotter if use_dummy_spotter else BananaSpotterBayes3D
     banana_spotter = builder.AddNamedSystem(
         "banana_spotter",
-        BananaSpotterBayes3D(
+        Spotter(
             spot_camera,
             get_cam_poses_nested_array(),
             num_tables=len(table_pose_extractors),
@@ -264,10 +268,16 @@ model_drivers:
         )
 
         # Grasper (banana pose -> gripper joint positions)
-        builder.Connect(
-            banana_spotter.get_banana_pose_output_port(),
-            grasper.get_banana_pose_input_port(),
-        )
+        if use_dummy_spotter:
+            builder.Connect(
+                banana_pose_extractor.get_output_port(),
+                grasper.get_banana_pose_input_port()
+            )
+        else:
+            builder.Connect(
+                banana_spotter.get_banana_pose_output_port(),
+                grasper.get_banana_pose_input_port(),
+            )
         builder.Connect(
             grasper.get_banana_grasped_output_port(),
             fsm.get_has_banana_input_port()
