@@ -5,7 +5,25 @@ import dataclasses
 
 import numpy as np
 
-from .sim import TableSceneSpec
+
+@dataclasses.dataclass
+class TableSceneSpec:
+    """
+    Description of the contents of one table top.  `None` values will be filled in via random generation
+    in `create_and_run_simulation`.
+
+    - n_objects is the number of non-banana objects.
+    - object_type_indices is a list of indices into `manipulation.scenarios.ycb`.
+    - object_contact_params is a list of tuples (x, y, theta, face). face is in (0, 1, 2)
+        and indicates which face of the object is in contact with the table.
+    """
+
+    has_banana: bool = False
+    banana_contact_params: tuple = None
+    n_objects: int = None
+    object_type_indices: list = None
+    object_contact_params: list = None
+
 
 _empty_table = TableSceneSpec(
     has_banana=False,
@@ -55,7 +73,12 @@ half_occluded_by_a_cracker_box = [
     dataclasses.replace(_half_occlusions, has_banana=True),
 ]
 full_occluded_by_a_cracker_box = [
+    _full_occlusions,
+    _full_occlusions,
     dataclasses.replace(_full_occlusions, has_banana=True),
-    _full_occlusions,
-    _full_occlusions,
+]
+default_table_specs = [
+    TableSceneSpec(has_banana=False),
+    TableSceneSpec(has_banana=False),
+    TableSceneSpec(has_banana=True),
 ]
