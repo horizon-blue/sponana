@@ -56,7 +56,7 @@ class Navigator(LeafSystem):
         self._trajectory = None
         self._traj_idx = -1
         self._previous_goal = initial_position
-        self._traj_idx_offset = 0
+        self._traj_prefix = 0
         self.DeclarePeriodicDiscreteUpdateEvent(
             period_sec=time_step, offset_sec=0.0, update=self._update
         )
@@ -104,8 +104,8 @@ class Navigator(LeafSystem):
             spot_problem, max_n_tries=100, max_iterations_per_try=500
         )
         if self._meshcat:
-            visualize_path(trajectory, self._meshcat, self._traj_idx_offset)
-        self._traj_idx_offset += len(trajectory)
+            visualize_path(trajectory, self._meshcat, self._traj_prefix)
+        self._traj_prefix += 1
 
         # reset trajectory
         self._trajectory = trajectory
