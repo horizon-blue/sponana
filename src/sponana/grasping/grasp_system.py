@@ -252,7 +252,7 @@ class Grasper(LeafSystem):
         # )
         best_gripper_pose = banana_pose @ GRASP_POSE_AT_00
         AddMeshcatTriad(
-            self.meshcat, f"Goal gripper pose",
+            self.meshcat, f"grasping/Goal gripper pose",
             length=0.25, X_PT=best_gripper_pose, opacity=1
         )
 
@@ -284,7 +284,7 @@ class Grasper(LeafSystem):
             for t in np.linspace(0, 7, 70):
                 p = traj_X_G.value(t)
                 AddMeshcatTriad(
-                    self.meshcat, f"arm trajectory {t}",
+                    self.meshcat, f"grasping/arm trajectory {t}",
                     length=0.125, X_PT=p, opacity=0.25
                 )
 
