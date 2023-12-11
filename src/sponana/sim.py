@@ -219,6 +219,10 @@ model_drivers:
             navigator.get_do_rrt_input_port(),
         )
         builder.Connect(
+            fsm.get_slow_down_output_port(),
+            navigator.get_slow_down_input_port(),
+        )
+        builder.Connect(
             navigator.get_done_rrt_output_port(), fsm.get_camera_reached_input_port()
         )
         builder.Connect(

@@ -107,6 +107,7 @@ class FiniteStateMachine(LeafSystem):
             name="grasp_banana", size=1, calc=self._set_do_grasp
         )
         self.DeclareVectorOutputPort(name="do_rrt", size=1, calc=self._set_do_rrt)
+        self.DeclareVectorOutputPort(name="slow_down", size=1, calc=self._set_slow_down)
         # Declare that `check_banana` has no direct feedthrough from the input ports.
         # (In fact, it only directly depends on _current_action, which is a state variable.)
         self.DeclareVectorOutputPort(
@@ -154,6 +155,10 @@ class FiniteStateMachine(LeafSystem):
                 or current_action == Action.CARRY_BACK
             ]
         )
+
+    def _set_slow_down(self, context, output):
+        current_action = self._get_current_action(context)
+        output.SetFromVector([current_action == Action.CARRY_BACK])
 
     # Run perception when current action == 2
     def _set_check_banana(self, context, output):
@@ -234,7 +239,7 @@ class FiniteStateMachine(LeafSystem):
                 logger.debug("--> Carrying back completed.")
                 # Grasping
                 self._set_current_action(context, state, Action.SUCCESS)
-        else:
+            else:
                 logger.debug("--> Carrying back not completed.")
         else:
             # Success or fail, but we're done either way
@@ -355,6 +360,9 @@ class FiniteStateMachine(LeafSystem):
 
     def get_do_rrt_output_port(self):
         return self.GetOutputPort("do_rrt")
+
+    def get_slow_down_output_port(self):
+        return self.GetOutputPort("slow_down")
 
     def get_check_banana_output_port(self):
         return self.GetOutputPort("check_banana")
