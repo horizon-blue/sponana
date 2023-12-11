@@ -59,8 +59,8 @@ def solve_ik(
 
         # nominal pose
         q0 = np.zeros(len(q))
-        q0[:3] = base_position 
-        q0[3:10] = q_current # q_nominal_arm
+        q0[:3] = base_position
+        q0[3:10] = q_nominal_arm
 
         # Target position and rotation
         p_WT = X_WT.translation()
@@ -91,8 +91,10 @@ def solve_ik(
             prog.AddConstraint(eq(q[:3], base_position))
 
         # Let's get started
+        q_start = q0.copy()
+        q_start[3:10] = q_current
         prog.AddQuadraticErrorCost(np.identity(len(q)), q0, q)
-        prog.SetInitialGuess(q, q0) # + np.random.rand(len(q)) * 0.01) #np.random.rand(len(q)))
+        prog.SetInitialGuess(q, q_start)
 
         result = Solve(ik.prog())
         if result.is_success():
