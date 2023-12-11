@@ -67,7 +67,7 @@ camera_poses_W = [
         p=[-0.35091572089593653, 0.4881919030929625, 0.495],
     ),
 ]
-table_pose = Xs_WT[0]  # Table these camera poses are around
+table_pose = Xs_WT[1]  # Table these camera poses are around
 
 # convert camera pose back to base joint positions
 X_BC = RigidTransform(
@@ -97,6 +97,12 @@ def get_camera_poses_table_frame():
     Xs_TC = [X_TW @ X_WC for X_WC in camera_poses_W]
     return Xs_TC
 
+def get_cam_poses_nested_array():
+    Xs_WC = []
+    Xs_TC = get_camera_poses_table_frame()
+    for X_WT in Xs_WT:
+        Xs_WC.append([X_WT @ X_TC for X_TC in Xs_TC])
+    return Xs_WC
 
 def get_all_camera_poses_world_frame():
     Xs_TC = get_camera_poses_table_frame()

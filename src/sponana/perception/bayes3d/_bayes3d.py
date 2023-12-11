@@ -24,6 +24,9 @@ import pickle
 from bayes3d.neural.segmentation import carvekit_get_foreground_mask
 import genjax
 import pyransac3d
+import logging
+
+logger = logging.getLogger(__name__)
 
 def plane_pose_to_plane_eq(plane_pose):
     """
@@ -84,10 +87,29 @@ def get_plane_inliers(point_cloud, plane_pose, threshold):
     ) / np.sqrt(plane[0] ** 2 + plane[1] ** 2 + plane[2] ** 2)
     return np.where(np.abs(dist_pt) <= threshold)[0]
 
-def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_frame=None):    
-    rgbd_scaled_down = b.RGBD.scale_rgbd(rgbd, scaling_factor)
+_RENDERER_ALREADY_SETUP = False
+_RENDERER_INTRINSICS = None
+_MESHES_ADDED_TO_RENDERER = False
+def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_frame=None, table_dims=None):
+    global _RENDERER_ALREADY_SETUP
+    global _RENDERER_INTRINSICS
+    global _MESHES_ADDED_TO_RENDERER
 
-    b.setup_renderer(rgbd_scaled_down.intrinsics)
+    rgbd_scaled_down = b.RGBD.scale_rgbd(rgbd, scaling_factor)
+    logger.debug("rgbd scaled down")
+    logger.debug(f"rgbd.scaeld_down intrinsics: {rgbd_scaled_down.intrinsics}")
+
+    if not _RENDERER_ALREADY_SETUP:
+        b.setup_renderer(rgbd_scaled_down.intrinsics)
+        _RENDERER_INTRINSICS = rgbd_scaled_down.intrinsics
+        _RENDERER_ALREADY_SETUP = True
+        logger.debug("setup renderer")
+    else:
+        assert rgbd_scaled_down.intrinsics == _RENDERER_INTRINSICS
+
+    if not _MESHES_ADDED_TO_RENDERER:
+        add_meshes_to_renderer(table_dims=table_dims)
+        _MESHES_ADDED_TO_RENDERER = True
 
     cloud = b.unproject_depth(rgbd_scaled_down.depth, rgbd_scaled_down.intrinsics).reshape(-1,3)
     too_big_indices = np.where(cloud[:,2] > 1.2)
@@ -96,13 +118,18 @@ def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_
     too_small_indices = np.where(cloud[:,2] < 0.1)
     cloud = cloud.at[too_small_indices, :].set(np.nan)
 
+    logger.debug("setup clouds")
+
     # if table_pose_in_cam_frame is None:
     if table_pose_in_cam_frame is None:
+        logger.debug("finding plane")
         table_pose, inliers = find_plane(np.array(cloud), 0.01)
     else:
+        logger.debug("getting inliers")
         table_pose = table_pose_in_cam_frame
         inliers = get_plane_inliers(np.array(cloud), table_pose, 0.01)
     camera_pose = jnp.eye(4)
+    logger.debug("updating table pose")
     table_pose_in_cam_frame = b.t3d.inverse_pose(camera_pose) @ table_pose
     if table_pose_in_cam_frame[2,2] > 0:
         table_pose = table_pose @ b.t3d.transform_from_axis_angle(jnp.array([1.0, 0.0, 0.0]), jnp.pi)
@@ -118,8 +145,9 @@ def scale_remove_and_setup_renderer(rgbd, scaling_factor=0.5, table_pose_in_cam_
     x_indices, y_indices = np.unravel_index(too_small_indices, depth_im.shape)
     depth_im = depth_im.at[x_indices, y_indices].set(b.RENDERER.intrinsics.far)
 
+    logger.debug("about to unproject depth")
     obs_img = b.unproject_depth_jit(depth_im, rgbd_scaled_down.intrinsics)
-
+    logger.debug("depth unprojected")
     return rgbd_scaled_down, obs_img, table_pose, cloud, depth_im
 
 def add_meshes_to_renderer(
@@ -144,7 +172,7 @@ def add_meshes_to_renderer(
     b.RENDERER.add_mesh(pillar_mesh, "pillar")
 
     # Add a plane
-    b.RENDERER.add_mesh_from_file("/home/georgematheos/tampura/tampura/tampura/envs/find_dice_bayes3d/environment/toy_plane.ply")
+    # b.RENDERER.add_mesh_from_file("/home/georgematheos/tampura/tampura/tampura/envs/find_dice_bayes3d/environment/toy_plane.ply")
 
     # Optional: add table
     if table_dims is not None:

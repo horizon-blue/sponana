@@ -42,7 +42,7 @@ def rrt_planning(
 
     return None"""
 
-    for _ in range(max_n_tries):
+    for i in range(max_n_tries):
         rrt_tools = RRT_tools(problem)
         q_goal = problem.goal
 

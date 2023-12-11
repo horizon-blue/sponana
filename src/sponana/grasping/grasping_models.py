@@ -7,7 +7,7 @@ DEFAULT_TARGET_OBJ_RPY_STR = "[0, 0, 0]"
 
 SUGAR_BOX_TARGET_PATH = "package://sponana/grasping/004_sugar_box.sdf"
 SUGAR_BOX_TARGET_LINK = "base_link_sugar"
-SUGAR_BOX_RPY_STR = "[0, 90, 0]"
+SUGAR_BOX_RPY_STR = "[90, 90, 90]"
 
 def spot_and_target_str(
         target_obj_path=DEFAULT_TARGET_OBJ_PATH,
@@ -57,6 +57,14 @@ directives:
     child: table_top0::table_top_center
     X_PC:
         translation: [0, 0, 0.47]
+"""
+
+def gripper_only_str():
+    return f"""
+directives:
+- add_model:
+    name: _gripper
+    file: package://sponana/grasping/spot_gripper.urdf
 """
 
 def gripper_and_target_str(

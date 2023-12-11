@@ -21,34 +21,20 @@ from sponana.fsm import FiniteStateMachine
 from sponana.grasping import Grasper
 from sponana.hardcoded_cameras import get_camera_generator_str
 from sponana.perception import (
-    BananaSpotter,
+    BananaSpotterBayes3D,
+    DummyBananaSpotter,
     add_body_pose_extractor,
     add_camera_pose_extractor,
 )
 from sponana.planner import Navigator
 
-from .hardcoded_cameras import get_base_positions_for_hardcoded_cameras
+from .hardcoded_cameras import (
+    get_base_positions_for_hardcoded_cameras,
+    get_cam_poses_nested_array,
+)
+from .table_specs import default_table_specs
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TableSceneSpec:
-    """
-    Description of the contents of one table top.  `None` values will be filled in via random generation
-    in `create_and_run_simulation`.
-
-    - n_objects is the number of non-banana objects.
-    - object_type_indices is a list of indices into `manipulation.scenarios.ycb`.
-    - object_contact_params is a list of tuples (x, y, theta, face). face is in (0, 1, 2)
-        and indicates which face of the object is in contact with the table.
-    """
-
-    has_banana: bool = False
-    banana_contact_params: tuple = None
-    n_objects: int = None
-    object_type_indices: list = None
-    object_contact_params: list = None
 
 
 def create_and_run_simulation(
@@ -57,17 +43,16 @@ def create_and_run_simulation(
     add_debug_logger=False,
     simulation_time=-1,
     add_fixed_cameras=True,
-    table_specs=[
-        TableSceneSpec(has_banana=False),
-        TableSceneSpec(has_banana=False),
-        TableSceneSpec(has_banana=True),
-    ],
+    table_specs=default_table_specs,
     use_teleop=True,
     starting_position=np.array([3.0, 7.0, -1.57]),
     plot_camera_input=False,
+    use_naive_fsm=True,
+    use_dummy_spotter=False,
+    final_position=np.array([3.0, 7.5, 1.57]),
 ):
     """
-    Generate a Sponana environment consistent with the provided `table_specs`.
+    Generate a sponana environment and run a simulation.
     """
 
     # Randomly generate specifications for the tables if any are incomplete
@@ -169,10 +154,13 @@ model_drivers:
     camera_pose_extractor = add_camera_pose_extractor(
         spot_camera_config, station, builder
     )
+
+    Spotter = DummyBananaSpotter if use_dummy_spotter else BananaSpotterBayes3D
     banana_spotter = builder.AddNamedSystem(
         "banana_spotter",
-        BananaSpotter(
+        Spotter(
             spot_camera,
+            get_cam_poses_nested_array(),
             num_tables=len(table_pose_extractors),
             plot_camera_input=plot_camera_input,
             table_specs=table_specs,
@@ -194,7 +182,9 @@ model_drivers:
         fsm = builder.AddNamedSystem(
             "finite_state_machine",
             FiniteStateMachine(
-                target_base_positions=get_base_positions_for_hardcoded_cameras()
+                target_base_positions=get_base_positions_for_hardcoded_cameras(),
+                is_naive_fsm=use_naive_fsm,
+                final_position=final_position,
             ),
         )
 
@@ -229,6 +219,10 @@ model_drivers:
             navigator.get_do_rrt_input_port(),
         )
         builder.Connect(
+            fsm.get_slow_down_output_port(),
+            navigator.get_slow_down_input_port(),
+        )
+        builder.Connect(
             navigator.get_done_rrt_output_port(), fsm.get_camera_reached_input_port()
         )
         builder.Connect(
@@ -253,12 +247,24 @@ model_drivers:
             banana_spotter.get_perception_completed_output_port(),
             fsm.get_perception_completed_input_port(),
         )
+        builder.Connect(
+            banana_spotter.get_p_pose_output_port(1), fsm.get_p_pose_input_port(1)
+        )
+        builder.Connect(
+            banana_spotter.get_p_pose_output_port(2), fsm.get_p_pose_input_port(2)
+        )
 
         # Grasper (banana pose -> gripper joint positions)
-        builder.Connect(
-            banana_pose_extractor.get_output_port(),
-            grasper.get_banana_pose_input_port(),
-        )
+        if use_dummy_spotter:
+            builder.Connect(
+                banana_pose_extractor.get_output_port(),
+                grasper.get_banana_pose_input_port(),
+            )
+        else:
+            builder.Connect(
+                banana_spotter.get_banana_pose_output_port(),
+                grasper.get_banana_pose_input_port(),
+            )
         builder.Connect(
             grasper.get_banana_grasped_output_port(), fsm.get_has_banana_input_port()
         )

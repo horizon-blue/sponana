@@ -16,17 +16,18 @@ class SpotProblem(Problem):
         q_start: np.array,
         q_goal: np.array,
         collision_checker: Callable[[ConfigType], bool],
+        step_size: float = 0.1,
     ):
         self._collision_checker = collision_checker
 
         cspace_ranges = [
-            Range(low=-2, high=4),  # base_x
-            Range(low=-6, high=7),  # base_y
+            Range(low=-2, high=3.6),  # base_x
+            Range(low=-6, high=7.6),  # base_y
             Range(low=-2 * np.pi, high=2 * np.pi),  # base_rz
         ]
 
         # 0.1 for two prismatic joints (x, y), 5 degrees for the revolute joint (rz)
-        max_steps = [0.1, 0.1, np.pi / 180 * 5]
+        max_steps = [step_size, step_size, np.pi / 180 * 50 * step_size]
 
         cspace_spot = ConfigurationSpace(cspace_ranges, np.linalg.norm, max_steps)
         assert cspace_spot.valid_configuration(tuple(q_start))
