@@ -37,7 +37,7 @@ _single_banana = TableSceneSpec(
     banana_contact_params=(0, 0, 0, 0),
     n_objects=0,
     object_type_indices=[4, 1],  # gelatin, cracker box
-    object_contact_params=[(0.02, -0.08, 0, 2), (-0.1, 0.1, 0, 2)],
+    object_contact_params=[(-0.12, -0.13, 0.05, 2), (-0.1, 0.1, 0, 2)],
 )
 _half_occlusions = TableSceneSpec(
     has_banana=False,
@@ -81,4 +81,9 @@ default_table_specs = [
     TableSceneSpec(has_banana=False),
     TableSceneSpec(has_banana=False),
     TableSceneSpec(has_banana=True),
+]
+mix_rooms = [
+    dataclasses.replace(_single_banana, n_objects=1),
+    TableSceneSpec(has_banana=False),
+    _half_occlusions,
 ]
