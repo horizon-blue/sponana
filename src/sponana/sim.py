@@ -49,6 +49,7 @@ def create_and_run_simulation(
     plot_camera_input=False,
     use_naive_fsm=True,
     use_dummy_spotter=False,
+    final_position=np.array([3.0, 7.5, 1.57]),
 ):
     """
     Generate a sponana environment and run a simulation.
@@ -183,6 +184,7 @@ model_drivers:
             FiniteStateMachine(
                 target_base_positions=get_base_positions_for_hardcoded_cameras(),
                 is_naive_fsm=use_naive_fsm,
+                final_position=final_position,
             ),
         )
 

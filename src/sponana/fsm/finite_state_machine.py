@@ -15,6 +15,7 @@ class Action(enum.IntEnum):
     GRASP = 4
     SUCCESS = 5
     FAILURE = 6
+    CARRY_BACK = 7
 
 
 class FiniteStateMachine(LeafSystem):
@@ -69,6 +70,7 @@ class FiniteStateMachine(LeafSystem):
     def __init__(
         self,
         target_base_positions: np.ndarray,
+        final_position: np.ndarray,
         time_step: float = 0.1,
         is_naive_fsm=True,
     ):
@@ -81,6 +83,7 @@ class FiniteStateMachine(LeafSystem):
         self._camera_pos_list = target_base_positions
 
         self._is_naive_fsm = is_naive_fsm
+        self._final_position = final_position
 
         ### STATE
         # one of the Action enum values
@@ -137,13 +140,19 @@ class FiniteStateMachine(LeafSystem):
             R = RotationMatrix.MakeZRotation(base_pose[2])
             step = R.multiply([0.2, 0, 0])
             base_pose[:2] += step[:2]  # ignore height in z direction
+        if self._get_current_action(context) == Action.CARRY_BACK:
+            base_pose = self._final_position
         output.SetFromVector(base_pose)
 
     # Navigate when current action == 1
     def _set_do_rrt(self, context, output):
         current_action = self._get_current_action(context)
         output.SetFromVector(
-            [current_action == Action.MOVE or current_action == Action.STEP_FORWARD]
+            [
+                current_action == Action.MOVE
+                or current_action == Action.STEP_FORWARD
+                or current_action == Action.CARRY_BACK
+            ]
         )
 
     # Run perception when current action == 2
@@ -213,12 +222,20 @@ class FiniteStateMachine(LeafSystem):
                 logger.debug("--> Grasp completed.")
                 if self._has_banana(context, state):
                     logger.debug("----> Banana obtained.")
-                    self._set_current_action(context, state, Action.SUCCESS)  # Done!
+                    self._set_current_action(context, state, Action.CARRY_BACK)
                 else:
                     logger.debug("----> Banana not obtained.")
                     self._set_current_action(context, state, Action.FAILURE)  # Fail!
             else:
                 logger.debug("--> Grasp not yet completed...")
+        elif current_action == Action.CARRY_BACK:
+            logger.debug("Carrying the banana back...")
+            if self._get_rrt_completed(context, state):
+                logger.debug("--> Carrying back completed.")
+                # Grasping
+                self._set_current_action(context, state, Action.SUCCESS)
+        else:
+                logger.debug("--> Carrying back not completed.")
         else:
             # Success or fail, but we're done either way
             assert current_action == Action.SUCCESS or current_action == Action.FAILURE

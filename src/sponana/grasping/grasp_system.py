@@ -381,7 +381,9 @@ def MakeGripperFrames(X_WGinit, X_WGfinal, t0):
     Here, G is the gripper frame AS THOUGH IT'S THE WSG! (NOT THE LINK FRAME)
     """
     X_WG = {"initial": X_WGinit}
-    X_WG["post_init"] = X_WGinit @ RigidTransform([0.0, 0.3, 0.0])
+    X_WG["post_init"] = X_WGinit @ RigidTransform(
+        RotationMatrix.MakeYRotation(-0.7), [0.0, 0.3, 0.0]
+    )
     # X_WG["prepick"] =  X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.3, 0.05])
     # X_WG["pick"] = X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.2, 0.05])
     # X_WG["postpick"] = X_WGfinal @ RigidTransform(RollPitchYaw([0., -0.6, 0.]), [0., -0.22, 0.05])
