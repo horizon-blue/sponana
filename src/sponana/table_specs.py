@@ -83,7 +83,7 @@ default_table_specs = [
     TableSceneSpec(has_banana=True),
 ]
 mix_rooms = [
-    dataclasses.replace(_single_banana, n_objects=1),
-    TableSceneSpec(has_banana=False),
+    _empty_table,
     _half_occlusions,
+    dataclasses.replace(_single_banana, n_objects=1),
 ]

@@ -21,7 +21,7 @@ class SpotProblem(Problem):
         self._collision_checker = collision_checker
 
         cspace_ranges = [
-            Range(low=-2, high=4),  # base_x
+            Range(low=-2, high=3.6),  # base_x
             Range(low=-6, high=7.6),  # base_y
             Range(low=-2 * np.pi, high=2 * np.pi),  # base_rz
         ]

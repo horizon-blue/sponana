@@ -168,7 +168,14 @@ class FiniteStateMachine(LeafSystem):
     # Run grasping when current action == 3
     def _set_do_grasp(self, context, output):
         current_action = self._get_current_action(context)
-        output.SetFromVector([current_action == Action.GRASP])
+        output.SetFromVector(
+            [
+                current_action == Action.GRASP
+                # leverage grasper to throw out the banana
+                or current_action == Action.SUCCESS
+                and context.get_time() - self._success_time < 4.0
+            ]
+        )
 
     ### Initialization ###
     def _initialize_state(self, context: Context, state: State):
