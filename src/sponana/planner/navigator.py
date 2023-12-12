@@ -109,7 +109,7 @@ class Navigator(LeafSystem):
             current_base_pos,
             target_position,
             lambda config: self._collision_check(config, current_arm_pos),
-            step_size=0.1 if not slow_down else 0.05,
+            step_size=0.1 if not slow_down else 0.02,
         )
         trajectory = rrt_planning(
             spot_problem, max_n_tries=100, max_iterations_per_try=500

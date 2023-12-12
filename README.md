@@ -6,6 +6,8 @@ Final project for [Fall 2023 MIT 6.4212 Robotic Manipulation class](https://mani
 
 [<img src="https://img.youtube.com/vi/wxDxBUgyNhc/maxresdefault.jpg" width=300 />](https://youtu.be/wxDxBUgyNhc)
 
+To find out more details, [check out our final report!](./final_report.pdf)
+
 ## Installation
 
 Prerequisite: Having [Conda](https://docs.conda.io/projects/miniconda/en/latest/) installed in your system. 
