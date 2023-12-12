@@ -165,3 +165,6 @@ cython_debug/
 
 # Bayes3D
 lib/bayes3d
+
+# The uncompressed index.html is too large to track
+index.html
