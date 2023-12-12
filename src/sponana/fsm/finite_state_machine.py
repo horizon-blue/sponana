@@ -246,6 +246,7 @@ class FiniteStateMachine(LeafSystem):
                 logger.debug("--> Carrying back completed.")
                 # Grasping
                 self._set_current_action(context, state, Action.SUCCESS)
+                self._success_time = context.get_time()
             else:
                 logger.debug("--> Carrying back not completed.")
         else:
