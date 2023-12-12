@@ -2,11 +2,13 @@
 
 Final project for [Fall 2023 MIT 6.4212 Robotic Manipulation class](https://manipulation.csail.mit.edu/Fall2023/).
 
-[Watch the talk on YouTube:](https://youtu.be/wxDxBUgyNhc)
+To learn more about the project:
+
+- [See an example end-to-end SPONANA simulation in Meshcat](https://horizonian.com/sponana) (warning: the file is very large (~160MB))
+- [Check out our final report for technical details](./final_report.pdf)
+- [Watch our talk on YouTube](https://youtu.be/wxDxBUgyNhc)
 
 [<img src="https://img.youtube.com/vi/wxDxBUgyNhc/maxresdefault.jpg" width=300 />](https://youtu.be/wxDxBUgyNhc)
-
-To find out more details, [check out our final report!](./final_report.pdf)
 
 ## Installation
 
