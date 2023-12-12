@@ -1,5 +1,11 @@
 # SPONANA: SPOt bNANA!
 
+Final project for [Fall 2023 MIT 6.4212 Robotic Manipulation class](https://manipulation.csail.mit.edu/Fall2023/).
+
+[Watch the talk on YouTube:](https://youtu.be/wxDxBUgyNhc)
+
+[<img src="https://img.youtube.com/vi/wxDxBUgyNhc/maxresdefault.jpg" width=300 />](https://youtu.be/wxDxBUgyNhc)
+
 ## Installation
 
 Prerequisite: Having [Conda](https://docs.conda.io/projects/miniconda/en/latest/) installed in your system. 
